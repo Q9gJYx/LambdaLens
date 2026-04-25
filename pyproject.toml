@@ -4,9 +4,48 @@ version = "0.1.0"
 description = "Experimental collaboration repository for VIS 2026 short paper preparation"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "pysgtsnepi>=0.3.0",
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "scikit-learn>=1.4",
+  "networkx>=3.2",
+  "pandas>=2.2",
+  "pyarrow>=15.0",
+  "zadu>=0.2.0",
+  "matplotlib>=3.8",
+  "tqdm>=4.66",
+]
 
 [tool.uv]
 dev-dependencies = [
   "pytest>=8.0.0",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "jupyterlab>=4.0",
+  "ipywidgets>=8.1",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+strict_optional = true
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

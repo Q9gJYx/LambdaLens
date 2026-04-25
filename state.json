@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "paper": "Lambda Lens (VIS 2026 short)",
+  "deadline_aoe": "2026-04-30T23:59-12:00",
+  "branch": "paper-vis2026",
+  "compute": {
+    "host": "zjl",
+    "ssh_alias": "zjl",
+    "remote_path": "/home/zhoujunlin/WorkSpace/wh/lambda-lens",
+    "install_cmd": "uv sync",
+    "scheduler": "process-pool",
+    "max_workers": 16
+  },
+  "datasets": ["cora", "citeseer", "mnist_knn", "ca_astroph"],
+  "lambdas": [0.5, 1, 2, 5, 10, 20, 50, 100],
+  "seeds": [42, 43, 44],
+  "runs": {
+    "e1": {"job_pid": null, "started_at": null, "expected_done_by": null, "recovery_cmd": null, "state": "not_submitted"},
+    "e2": {"job_pid": null, "state": "not_submitted"},
+    "e3": {"job_pid": null, "state": "not_submitted"},
+    "e5_surrogate": {"job_pid": null, "state": "not_started", "note": "GNN+FiLM lambda-conditioned surrogate; research add-on, Day 3-4"}
+  },
+  "kill_switch": {"state": "ARMED", "per_dataset_procrustes": {}},
+  "session_log": [
+    {"ts": "2026-04-25T01:10:00Z", "actor": "experiment-agent", "event": "Phase 1 init: Duke CS unavailable, pivoted to zjl + ProcessPoolExecutor; user opted into NN surrogate option (c) as Day 3-4 add-on."}
+  ]
+}
