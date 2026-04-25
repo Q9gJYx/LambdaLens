@@ -4,12 +4,23 @@
   "deadline_aoe": "2026-04-30T23:59-12:00",
   "branch": "paper-vis2026",
   "compute": {
-    "host": "zjl",
-    "ssh_alias": "zjl",
-    "remote_path": "/home/zhoujunlin/WorkSpace/wh/lambda-lens",
+    "host": "azure-vm",
+    "provider": "azure",
+    "subscription_id": "1f95b428-f520-42af-ac34-a91e2e0df028",
+    "subscription_name": "Azure for Students",
+    "region": "japaneast",
+    "resource_group": "vis2026-jp",
+    "vm_name": "lens-vm",
+    "vm_size": "Standard_E4s_v3",
+    "public_ip": "40.115.138.51",
+    "ssh_user": "azureuser",
+    "ssh_alias": "lens-vm",
+    "remote_path": "~/lambda-lens",
     "install_cmd": "uv sync",
     "scheduler": "process-pool",
-    "max_workers": 16
+    "max_workers": 2,
+    "cost_ceiling_usd": 25,
+    "policy_note": "Azure-for-Students subscription is region-restricted to {malaysiawest, southeastasia, centralindia, japaneast, koreacentral}; eastus and eastus2 both blocked by sys.regionrestriction policy. Picked japaneast for lowest latency from US East Coast (~150ms). E5 surrogate dropped — no GPU SKU accessible without quota requests that won't land before deadline."
   },
   "datasets": ["cora", "citeseer", "mnist_knn", "ca_astroph"],
   "lambdas": [0.5, 1, 2, 5, 10, 20, 50, 100],
@@ -18,10 +29,11 @@
     "e1": {"job_pid": null, "started_at": null, "expected_done_by": null, "recovery_cmd": null, "state": "not_submitted"},
     "e2": {"job_pid": null, "state": "not_submitted"},
     "e3": {"job_pid": null, "state": "not_submitted"},
-    "e5_surrogate": {"job_pid": null, "state": "not_started", "note": "GNN+FiLM lambda-conditioned surrogate; research add-on, Day 3-4"}
+    "e5_surrogate": {"job_pid": null, "state": "cut", "note": "GNN+FiLM surrogate cut from this cycle on 2026-04-26: Azure-for-Students region/SKU policy left no usable GPU; surfaced as future-work pointer in §5 instead."}
   },
   "kill_switch": {"state": "ARMED", "per_dataset_procrustes": {}},
   "session_log": [
-    {"ts": "2026-04-25T01:10:00Z", "actor": "experiment-agent", "event": "Phase 1 init: Duke CS unavailable, pivoted to zjl + ProcessPoolExecutor; user opted into NN surrogate option (c) as Day 3-4 add-on."}
+    {"ts": "2026-04-25T01:10:00Z", "actor": "experiment-agent", "event": "Phase 1 init: Duke CS unavailable, pivoted to zjl + ProcessPoolExecutor; user opted into NN surrogate option (c) as Day 3-4 add-on."},
+    {"ts": "2026-04-26T00:00:00Z", "actor": "experiment-agent", "event": "Phase 2: zjl unreachable (DNS resolves to a Tailscale subnet route IP this account doesn't have access to); h17 has 99% disk pressure; pivoted to Azure VM on Azure for Students credit. Microsoft.Compute/Network/Storage providers registering."}
   ]
 }

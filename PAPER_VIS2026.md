@@ -1,25 +1,25 @@
 # VIS 2026 Paper Status (Lambda Lens)
 
-> Last updated: 2026-04-25 by experiment-side agent
+> Last updated: 2026-04-26 by experiment-side agent
 
 ## Headline
-- Day: 1 of 5 (Sat 2026-04-25, today)
-- Kill switch: ARMED
-- Blocker: awaiting user answers to Phase 1 questions before initialising remote env
+- Day: 2 of 5 (Sun 2026-04-26, today). Day 1 work (E1 + kill switch) shifted to today after compute target had to pivot three times (Duke CS → zjl → h17 → Azure).
+- Kill switch: ARMED (decision still pending E1 results)
+- Blocker: none — VM up, Phase 3 sanity in progress
 
 ## Compute
-- Host: **zjl** (`shimarin.vul337.team`), 32c/64t Xeon Gold 6326, 377 GB RAM, no scheduler
-- Remote path: `/home/zhoujunlin/WorkSpace/wh/lambda-lens`
-- Install command: `uv sync`
-- Runner: `scripts/run_e1_local.py` driven by `concurrent.futures.ProcessPoolExecutor`, max-workers 16
-- Backup: xulab (10c/20t / 125 GB), local Mac (sanity only)
+- Host: **Azure VM `lens-vm`** in resource group `vis2026-jp`, region **`japaneast`** (Azure-for-Students subscription is region-restricted to 5 Asia regions; eastus blocked by `sys.regionrestriction` policy). Public IP `40.115.138.51`. SSH alias `lens-vm`.
+- Size: **`Standard_E4s_v3`** — 4 vCPU, 32 GB RAM, no GPU (~$0.252/h on-demand).
+- Install command: `uv sync` (after rsync)
+- Runner: `scripts/run_e1_local.py` driven by `concurrent.futures.ProcessPoolExecutor`, max-workers 2 (4 vCPU / 2 cores per task)
+- Cost ceiling: ~$25 of the $691 student credit; `az vm deallocate -g vis2026-jp -n lens-vm` between work bursts
 
 ## Experiments
 
-### E1 — lambda grid effect (Day 1)
+### E1 — lambda grid effect (Day 1 work, running Day 2)
 - Status: not started
 - Job: n/a
-- Recovery: `ssh zjl 'pgrep -af run_e1_local.py'`
+- Recovery: `ssh azure-vm 'pgrep -af run_e1_local.py'` (alias TBD)
 - Procrustes gate: pending
 - Artifacts: `output/tables/{cora,citeseer,mnist_knn,ca_astroph}_lambda_grid.parquet`
 - Notes: 96-cell grid (4 datasets × 8 lambdas × 3 seeds)
@@ -40,6 +40,6 @@
 
 ## Requests for paper-side agent
 
-- **Compute pivot.** Duke CS access lost on 2026-04-25. Switched to zjl + `ProcessPoolExecutor` instead of SLURM. The `code_repo_init_prompt.md` SLURM template (l. 315–341) and Phase 4 wording need a sync. Functionally equivalent (same artifact tree, same gate semantics).
-- **Plan date alignment.** `outline.md` reads "Day 1 (Sat 2026-04-26)" but Sat is **2026-04-25**, today. Numbering shifted accordingly here. Either fix the dates upstream or accept the de-facto shift.
+- **Compute pivot, second iteration.** zjl (manual's intended fallback after Duke CS) turned out to be on a tailnet not shared with this account; h17 has disk pressure (root 99%). Settled on Azure VM (`Standard_*` in eastus) on the user's $691 Azure-for-Students credit. The `code_repo_init_prompt.md` SLURM template (l. 315–341) and Phase 4 wording are doubly moot for this cycle.
+- **Plan date alignment.** Original `outline.md` plan started "Day 1 (Sat)" on the 26th but Sat was the 25th. Schedule slipped one day due to the compute search; today (2026-04-26) is doing Day 1 + Day 2 work. AoE deadline 2026-04-30 still feasible if E1 + E2 land today.
 - **NN surrogate research add-on.** User asked us to attempt a λ-conditioned GNN+FiLM surrogate (E5) this cycle. Best-effort, not guaranteed. If it lands, may motivate a one-paragraph mention in §5 / Future Work.

@@ -34,16 +34,17 @@ paper repo directly.
 
 Work on `paper-vis2026`. `main` stays clean.
 
-## Compute (deviates from manual — Duke CS lost 2026-04-25)
+## Compute (deviates from manual — Duke CS lost, zjl/h17 also unviable)
 
-Primary host: **zjl** (`shimarin.vul337.team`, 32c/64t Xeon Gold 6326,
-377 GB RAM, no scheduler). Coordinate with zhoujunlin; use the reserved
-slot at `/home/zhoujunlin/WorkSpace/wh/lambda-lens`. The (dataset, λ,
+Primary host: **Azure VM** in `eastus`, subscription "Azure for Students"
+(sub id in `state.json`), resource group `lambda-lens`. SKU is captured
+in `state.json compute.vm_size` after provisioning. The (dataset, λ,
 seed) grid runs through `scripts/run_e1_local.py` driven by a
-`concurrent.futures.ProcessPoolExecutor` (the manual's sbatch template
-is moot). Per-experiment state lives in `state.json` under
-`runs.{e1,e2,e3,e5_surrogate}`. Backup hosts: xulab (10c/20t / 125 GB),
-local Mac (sanity only).
+`concurrent.futures.ProcessPoolExecutor`; the manual's sbatch template
+is moot. Per-experiment state lives in `state.json` under
+`runs.{e1,e2,e3,e5_surrogate}`. Cost ceiling ~$25 of the $691 student
+credit; deallocate (`az vm deallocate`) between work bursts to avoid
+idle billing. Tear down the resource group on submission day.
 
 ## uv commands
 
