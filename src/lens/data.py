@@ -34,13 +34,25 @@ def _atomic_download(url: str, dst: Path) -> None:
     os.replace(tmp, dst)
 
 
-def _atomic_save(arr_or_path, dst: Path, save_fn) -> None:
-    """Atomically save via tmp+rename. save_fn(path, arr_or_path) writes the file."""
+def _atomic_save_npy(arr: np.ndarray, dst: Path) -> None:
+    """Save arr to dst (.npy) atomically. Bypasses np.save's suffix munging by using a file handle."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists():
         return
     tmp = dst.with_suffix(dst.suffix + ".tmp")
-    save_fn(tmp, arr_or_path)
+    with open(tmp, "wb") as f:
+        np.save(f, arr)
+    os.replace(tmp, dst)
+
+
+def _atomic_save_npz(adj: sp.spmatrix, dst: Path) -> None:
+    """Save sparse matrix atomically. scipy.sparse.save_npz auto-appends .npz too."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists():
+        return
+    tmp = dst.with_suffix(dst.suffix + ".tmp")
+    with open(tmp, "wb") as f:
+        sp.save_npz(f, adj)
     os.replace(tmp, dst)
 
 
@@ -149,8 +161,8 @@ def load_mnist_knn(
         y_te = _parse_mnist_labels(cache / "t10k-labels-idx1-ubyte.gz")
         features = np.vstack([x_tr, x_te]).astype(np.float32)
         labels = np.concatenate([y_tr, y_te]).astype(int)
-        _atomic_save(features, cache_feat, lambda p, a: np.save(p, a))
-        _atomic_save(labels, cache_lbl, lambda p, a: np.save(p, a))
+        _atomic_save_npy(features, cache_feat)
+        _atomic_save_npy(labels, cache_lbl)
     else:
         features = np.load(cache_feat)
         labels = np.load(cache_lbl)
@@ -162,7 +174,7 @@ def load_mnist_knn(
         adj = ((adj + adj.T) > 0).astype(np.float32).tocsr()
         adj.setdiag(0)
         adj.eliminate_zeros()
-        _atomic_save(adj, cache_npz, lambda p, a: sp.save_npz(str(p), a))
+        _atomic_save_npz(adj, cache_npz)
 
     return adj, features, labels
 
