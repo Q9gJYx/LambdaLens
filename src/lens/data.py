@@ -103,11 +103,35 @@ def load_planetoid(
     return adj, features, labels
 
 
+MNIST_BASE = "https://ossci-datasets.s3.amazonaws.com/mnist"
+MNIST_FILES = (
+    "train-images-idx3-ubyte.gz",
+    "train-labels-idx1-ubyte.gz",
+    "t10k-images-idx3-ubyte.gz",
+    "t10k-labels-idx1-ubyte.gz",
+)
+
+
+def _parse_mnist_images(path: Path) -> np.ndarray:
+    import struct
+
+    with gzip.open(path, "rb") as f:
+        _magic, n, h, w = struct.unpack(">IIII", f.read(16))
+        return np.frombuffer(f.read(), dtype=np.uint8).reshape(n, h * w)
+
+
+def _parse_mnist_labels(path: Path) -> np.ndarray:
+    import struct
+
+    with gzip.open(path, "rb") as f:
+        _magic, _n = struct.unpack(">II", f.read(8))
+        return np.frombuffer(f.read(), dtype=np.uint8)
+
+
 def load_mnist_knn(
     k: int = 15, cache_dir: str | Path = "data/processed"
 ) -> tuple[sp.csr_matrix, np.ndarray, np.ndarray]:
-    """Build a k-NN graph over MNIST-784. Cached as .npz with atomic writes."""
-    from sklearn.datasets import fetch_openml
+    """Build a k-NN graph over MNIST-784 (raw IDX from PyTorch S3 mirror)."""
     from sklearn.neighbors import kneighbors_graph
 
     cache = Path(cache_dir) / "mnist_knn"
@@ -116,15 +140,20 @@ def load_mnist_knn(
     cache_feat = cache / "mnist_features.npy"
     cache_lbl = cache / "mnist_labels.npy"
 
-    if cache_feat.exists() and cache_lbl.exists():
-        features = np.load(cache_feat)
-        labels = np.load(cache_lbl)
-    else:
-        ds = fetch_openml("mnist_784", version=1, as_frame=False, cache=True)
-        features = ds.data.astype(np.float32)
-        labels = ds.target.astype(int)
+    if not (cache_feat.exists() and cache_lbl.exists()):
+        for fname in MNIST_FILES:
+            _atomic_download(f"{MNIST_BASE}/{fname}", cache / fname)
+        x_tr = _parse_mnist_images(cache / "train-images-idx3-ubyte.gz")
+        x_te = _parse_mnist_images(cache / "t10k-images-idx3-ubyte.gz")
+        y_tr = _parse_mnist_labels(cache / "train-labels-idx1-ubyte.gz")
+        y_te = _parse_mnist_labels(cache / "t10k-labels-idx1-ubyte.gz")
+        features = np.vstack([x_tr, x_te]).astype(np.float32)
+        labels = np.concatenate([y_tr, y_te]).astype(int)
         _atomic_save(features, cache_feat, lambda p, a: np.save(p, a))
         _atomic_save(labels, cache_lbl, lambda p, a: np.save(p, a))
+    else:
+        features = np.load(cache_feat)
+        labels = np.load(cache_lbl)
 
     if cache_npz.exists():
         adj = sp.load_npz(cache_npz)
