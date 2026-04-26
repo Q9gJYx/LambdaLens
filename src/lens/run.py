@@ -1,4 +1,13 @@
-"""Single-cell runner: one (dataset, lambda, seed) tuple end-to-end."""
+"""Single-cell runner: one (dataset, lambda, seed) tuple end-to-end.
+
+Persists outputs in a race-free manner:
+- embeddings via atomic tmp+rename (`_atomic_save_npy` from data.py)
+- per-cell parquet rows under tables/cells/ (no read-modify-write race)
+- a separate merge step (in run_e1_local.py) rolls cells into per-dataset parquets
+
+Skipped-metric cells (ZADU off; e.g. unlabeled large SNAP graphs) emit explicit
+NaN sentinels so all cells share schema.
+"""
 from __future__ import annotations
 
 import time
@@ -11,6 +20,15 @@ import scipy.sparse as sp
 from pysgtsnepi import sgtsnepi
 from zadu import ZADU
 
+from lens.data import _atomic_save_npy
+
+METRIC_COLUMNS = (
+    "trustworthiness",
+    "continuity",
+    "label_trustworthiness",
+    "label_continuity",
+)
+
 
 def _zadu_subsample(
     features: np.ndarray | None,
@@ -19,7 +37,6 @@ def _zadu_subsample(
     max_n: int,
     seed: int,
 ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray | None]:
-    """Take a fixed random subset for ZADU when the graph is too big."""
     n = embedding.shape[0]
     if features is None or n <= max_n:
         return features, embedding, labels
@@ -39,16 +56,15 @@ def run_one_cell(
     out_root: str | Path = "output",
     zadu_subsample_n: int = 5000,
 ) -> dict[str, Any]:
-    """Run SG-t-SNE-Pi at one (lambda, seed); persist embedding + parquet row."""
     out_root = Path(out_root)
-    (out_root / "tables").mkdir(parents=True, exist_ok=True)
+    (out_root / "tables" / "cells").mkdir(parents=True, exist_ok=True)
     (out_root / "embeddings").mkdir(parents=True, exist_ok=True)
 
     t0 = time.perf_counter()
     Y = sgtsnepi(adj, d=2, lambda_=lambda_, random_state=seed)
     runtime_s = time.perf_counter() - t0
 
-    metrics: dict[str, float] = {}
+    metrics: dict[str, float] = {c: float("nan") for c in METRIC_COLUMNS}
     if features is not None:
         sub_feat, sub_Y, sub_lbl = _zadu_subsample(
             features, Y, labels, zadu_subsample_n, seed
@@ -65,29 +81,25 @@ def run_one_cell(
             )
         raw = ZADU(spec, sub_feat).measure(sub_Y, label=sub_lbl)
         for entry in raw:
-            metrics.update({k: float(v) for k, v in entry.items()})
+            for k, v in entry.items():
+                if k in METRIC_COLUMNS:
+                    metrics[k] = float(v)
 
-    np.save(
-        out_root / "embeddings" / f"{dataset}_lam{lambda_}_seed{seed}.npy", Y
-    )
+    emb_path = out_root / "embeddings" / f"{dataset}_lam{lambda_}_seed{seed}.npy"
+    if emb_path.exists():
+        emb_path.unlink()
+    _atomic_save_npy(Y, emb_path)
 
     row = {
         "dataset": dataset,
-        "lambda_": lambda_,
-        "seed": seed,
+        "lambda_": float(lambda_),
+        "seed": int(seed),
         "runtime_s": runtime_s,
         **metrics,
     }
-    parquet = out_root / "tables" / f"{dataset}_lambda_grid.parquet"
-    new_df = pd.DataFrame([row])
-    if parquet.exists():
-        existing = pd.read_parquet(parquet)
-        existing = existing[
-            ~((existing["lambda_"] == lambda_) & (existing["seed"] == seed))
-        ]
-        df = pd.concat([existing, new_df], ignore_index=True)
-    else:
-        df = new_df
-    df.to_parquet(parquet, index=False)
+    cell_path = (
+        out_root / "tables" / "cells" / f"{dataset}_lam{lambda_}_seed{seed}.parquet"
+    )
+    pd.DataFrame([row]).to_parquet(cell_path, index=False)
 
     return row

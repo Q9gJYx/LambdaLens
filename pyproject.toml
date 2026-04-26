@@ -26,6 +26,13 @@ dev-dependencies = [
   "ipywidgets>=8.1",
 ]
 
+[tool.uv.sources]
+# Use the local pysgtsnepi working tree — the PyPI 0.3.0 wheel omits the
+# unweighted_to_weighted / local_weights Jaccard preprocessing that makes
+# lambda_rescaling a no-op on uniform-weight (i.e., unweighted symmetrized)
+# graphs. The local tree (commit b1131f8 or later) has the fix.
+pysgtsnepi = { path = "../sgtsnepi", editable = true }
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

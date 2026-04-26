@@ -1,6 +1,13 @@
 """Drive the full E1 grid (datasets x lambdas x seeds) with ProcessPoolExecutor.
 
-Resumable: skips (dataset, lambda, seed) cells already present in the parquet.
+Resumable: skips (dataset, lambda, seed) cells whose per-cell parquet already
+exists under output/tables/cells/. After all cells finish, merges per-cell
+parquets into a single per-dataset parquet at output/tables/{ds}_lambda_grid.parquet.
+
+Default lambda grid restricted to {0.5, 1, 2, 5, 10, 20} per literature audit
+(Track A, 2026-04-26): lambda > ~k drives mass negative-sigma failures on
+moderate-degree sparse graphs and is not operationally validated; published
+SG-t-SNE-Pi work tops out at lambda=80 (Mobius edge case, not a benchmark).
 """
 from __future__ import annotations
 
@@ -14,38 +21,63 @@ from pathlib import Path
 import pandas as pd
 
 DEFAULT_DATASETS = ("cora", "citeseer", "mnist_knn", "ca_astroph")
-DEFAULT_LAMBDAS = (0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0)
+DEFAULT_LAMBDAS = (0.5, 1.0, 2.0, 5.0, 10.0, 20.0)
 DEFAULT_SEEDS = (42, 43, 44)
 
 
+def _cell_parquet_path(out_root: Path, dataset: str, lam: float, seed: int) -> Path:
+    return out_root / "tables" / "cells" / f"{dataset}_lam{lam}_seed{seed}.parquet"
+
+
 def _existing_cells(out_root: Path, dataset: str) -> set[tuple[float, int]]:
-    p = out_root / "tables" / f"{dataset}_lambda_grid.parquet"
-    if not p.exists():
+    cells_dir = out_root / "tables" / "cells"
+    if not cells_dir.exists():
         return set()
-    df = pd.read_parquet(p)
-    return {(float(r.lambda_), int(r.seed)) for r in df.itertuples()}
+    found: set[tuple[float, int]] = set()
+    for p in cells_dir.glob(f"{dataset}_lam*_seed*.parquet"):
+        try:
+            df = pd.read_parquet(p)
+            for r in df.itertuples():
+                found.add((float(r.lambda_), int(r.seed)))
+        except Exception:
+            continue
+    return found
+
+
+def _merge_per_dataset(out_root: Path, datasets: list[str]) -> None:
+    cells_dir = out_root / "tables" / "cells"
+    if not cells_dir.exists():
+        return
+    for ds in datasets:
+        files = sorted(cells_dir.glob(f"{ds}_lam*_seed*.parquet"))
+        if not files:
+            continue
+        dfs = [pd.read_parquet(p) for p in files]
+        combined = pd.concat(dfs, ignore_index=True)
+        combined = combined.drop_duplicates(
+            subset=["dataset", "lambda_", "seed"], keep="last"
+        )
+        combined = combined.sort_values(["lambda_", "seed"]).reset_index(drop=True)
+        combined.to_parquet(out_root / "tables" / f"{ds}_lambda_grid.parquet", index=False)
+        print(f"[merge] {ds}: {len(combined)} rows", flush=True)
 
 
 def _worker(
     dataset: str, lambda_: float, seed: int, out_root: str, zadu_subsample_n: int
 ) -> dict:
-    # Import lazily inside the worker so each child process has a clean import tree.
     from lens.data import load_dataset
     from lens.run import run_one_cell
 
     adj, features, labels = load_dataset(dataset)
-    row = run_one_cell(
+    return run_one_cell(
         adj, features, labels, lambda_, seed, dataset, out_root, zadu_subsample_n
     )
-    return row
 
 
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--datasets", nargs="+", default=list(DEFAULT_DATASETS))
-    p.add_argument(
-        "--lambdas", nargs="+", type=float, default=list(DEFAULT_LAMBDAS)
-    )
+    p.add_argument("--lambdas", nargs="+", type=float, default=list(DEFAULT_LAMBDAS))
     p.add_argument("--seeds", nargs="+", type=int, default=list(DEFAULT_SEEDS))
     p.add_argument("--max-workers", type=int, default=2)
     p.add_argument("--out-root", default="output")
@@ -54,6 +86,11 @@ def main() -> int:
         "--state-json",
         default="output/meta/run_e1_state.json",
         help="Per-cell completion log for monitoring.",
+    )
+    p.add_argument(
+        "--no-merge",
+        action="store_true",
+        help="Skip the final per-dataset parquet merge step.",
     )
     args = p.parse_args()
 
@@ -73,6 +110,8 @@ def main() -> int:
     total = len(cells)
     if total == 0:
         print("[grid] nothing to do — all cells already present.", flush=True)
+        if not args.no_merge:
+            _merge_per_dataset(out_root, list(args.datasets))
         return 0
 
     print(
@@ -132,6 +171,10 @@ def main() -> int:
         f"{(time.perf_counter() - t0)/60:.1f} min",
         flush=True,
     )
+
+    if not args.no_merge:
+        _merge_per_dataset(out_root, list(args.datasets))
+
     return 0
 
 

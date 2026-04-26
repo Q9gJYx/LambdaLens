@@ -2012,7 +2012,7 @@ wheels = [
 [[package]]
 name = "pysgtsnepi"
 version = "0.3.0"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../sgtsnepi" }
 dependencies = [
     { name = "numba" },
     { name = "numpy" },
@@ -2020,10 +2020,33 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/5c/2dc05d52184fc4954de8ef206c1fb451dbff163699e05987a9492fb05905/pysgtsnepi-0.3.0.tar.gz", hash = "sha256:fe7531cc36197f9f83d267b9bb5fda7c8da2e0502149130558804c803a5d0102", size = 2840020, upload-time = "2026-02-11T11:20:57.141Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/97/6dbb412c5539823f7f7d648dcae4d17338493ea4f3e724e5b1d71330f884/pysgtsnepi-0.3.0-py3-none-any.whl", hash = "sha256:846ff0449709918e4a4a0c67b85968b107530a129f068d44c75c1a14cba0bce8", size = 17161, upload-time = "2026-02-11T11:20:58.698Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
+    { name = "matplotlib", marker = "extra == 'dev'", specifier = ">=3.5" },
+    { name = "matplotlib", marker = "extra == 'examples'", specifier = ">=3.5" },
+    { name = "matplotlib", marker = "extra == 'viz'", specifier = ">=3.5" },
+    { name = "mkdocs-awesome-pages-plugin", marker = "extra == 'docs'" },
+    { name = "mkdocs-jupyter", marker = "extra == 'docs'" },
+    { name = "mkdocs-material", marker = "extra == 'docs'" },
+    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'" },
+    { name = "nbclient", marker = "extra == 'dev'", specifier = ">=0.10" },
+    { name = "nbformat", marker = "extra == 'dev'", specifier = ">=5.10" },
+    { name = "numba", specifier = ">=0.61" },
+    { name = "numpy", specifier = ">=1.23" },
+    { name = "pre-commit", marker = "extra == 'dev'" },
+    { name = "pynndescent", specifier = ">=0.5" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7" },
+    { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "ruff", marker = "extra == 'dev'" },
+    { name = "scikit-image", marker = "extra == 'dev'", specifier = ">=0.20" },
+    { name = "scikit-image", marker = "extra == 'examples'", specifier = ">=0.20" },
+    { name = "scikit-learn", specifier = ">=1.2" },
+    { name = "scipy", specifier = ">=1.9" },
+    { name = "seaborn", marker = "extra == 'viz'", specifier = ">=0.12" },
 ]
+provides-extras = ["viz", "dev", "docs", "examples"]
 
 [[package]]
 name = "pytest"
@@ -2562,7 +2585,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "pyarrow", specifier = ">=15.0" },
-    { name = "pysgtsnepi", specifier = ">=0.3.0" },
+    { name = "pysgtsnepi", editable = "../sgtsnepi" },
     { name = "scikit-learn", specifier = ">=1.4" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "tqdm", specifier = ">=4.66" },
