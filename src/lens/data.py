@@ -1,12 +1,12 @@
 """Dataset loaders for Lambda Lens experiments.
 
-All loaders return (adjacency CSR sparse, features dense float32, labels int or None).
-Cache_dir defaults to data/processed; downloads are idempotent.
+All loaders return (adjacency CSR sparse, features dense float32 or None, labels int or None).
+Cache_dir defaults to data/processed; downloads are idempotent and atomic via tmp+rename.
 """
 from __future__ import annotations
 
 import gzip
-import io
+import os
 import pickle
 import urllib.request as ur
 from pathlib import Path
@@ -23,61 +23,77 @@ SNAP_URLS = {
 }
 
 
-def _download(url: str, dst: Path) -> None:
+def _atomic_download(url: str, dst: Path) -> None:
+    """Download url to dst atomically via tmp+rename. Idempotent."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists():
         return
-    with ur.urlopen(url) as r, open(dst, "wb") as f:
+    tmp = dst.with_suffix(dst.suffix + ".tmp")
+    with ur.urlopen(url) as r, open(tmp, "wb") as f:
         f.write(r.read())
+    os.replace(tmp, dst)
+
+
+def _atomic_save(arr_or_path, dst: Path, save_fn) -> None:
+    """Atomically save via tmp+rename. save_fn(path, arr_or_path) writes the file."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists():
+        return
+    tmp = dst.with_suffix(dst.suffix + ".tmp")
+    save_fn(tmp, arr_or_path)
+    os.replace(tmp, dst)
 
 
 def load_planetoid(
     name: str, cache_dir: str | Path = "data/processed"
 ) -> tuple[sp.csr_matrix, np.ndarray, np.ndarray]:
-    """Return (adjacency CSR, dense features, integer labels) for cora/citeseer/pubmed."""
+    """Return (adjacency CSR, dense features float32, integer labels) for cora/citeseer/pubmed.
+
+    Reconstructs node-id-aligned features and labels per the planetoid convention
+    (test rows get placed at their original node IDs; isolated citeseer test nodes
+    remain as zero-feature/label-0 placeholders).
+    """
     cache = Path(cache_dir) / name
     objs: dict = {}
     for f in PLANETOID_FILES:
         url = f"{PLANETOID_BASE}/ind.{name}.{f}"
         path = cache / f"ind.{name}.{f}"
-        _download(url, path)
+        _atomic_download(url, path)
         if f == "test.index":
             objs[f] = np.array([int(line) for line in path.read_text().split()])
         else:
             with path.open("rb") as fp:
                 objs[f] = pickle.load(fp, encoding="latin1")
 
-    test_idx = objs["test.index"]
-    test_idx_sorted = np.sort(test_idx)
+    test_idx_reorder = objs["test.index"]
     allx, tx = objs["allx"], objs["tx"]
     ally, ty = objs["ally"], objs["ty"]
+    n_allx = allx.shape[0]
+    n_feat = allx.shape[1]
+    n_class = ally.shape[1]
 
-    # Citeseer has isolated test nodes — pad tx/ty to include them as zero rows.
     if name == "citeseer":
-        full = np.arange(int(test_idx.min()), int(test_idx.max()) + 1)
-        tx_pad = sp.lil_matrix((len(full), allx.shape[1]), dtype=tx.dtype)
-        tx_pad[test_idx_sorted - full.min(), :] = tx
-        tx = tx_pad
-        ty_pad = np.zeros((len(full), ally.shape[1]), dtype=ty.dtype)
-        ty_pad[test_idx_sorted - full.min(), :] = ty
-        ty = ty_pad
-        test_idx_sorted = full
+        n = int(test_idx_reorder.max()) + 1
+    else:
+        n = n_allx + tx.shape[0]
 
-    n = allx.shape[0] + tx.shape[0]
-    features = sp.vstack([allx, tx]).tolil()
-    features[test_idx, :] = features[test_idx_sorted, :]
-    features = features.toarray().astype(np.float32)
+    features = np.zeros((n, n_feat), dtype=np.float32)
+    features[:n_allx] = allx.toarray()
+    tx_dense = tx.toarray() if sp.issparse(tx) else tx
+    features[test_idx_reorder] = tx_dense.astype(np.float32)
 
-    labels_full = np.vstack([ally, ty])
-    labels_full[test_idx, :] = labels_full[test_idx_sorted, :]
-    labels = labels_full.argmax(axis=1)
+    labels_oh = np.zeros((n, n_class), dtype=ally.dtype)
+    labels_oh[:n_allx] = ally
+    labels_oh[test_idx_reorder] = ty
+    labels = labels_oh.argmax(axis=1)
 
     rows: list[int] = []
     cols: list[int] = []
     for u, vs in objs["graph"].items():
         for v in vs:
-            rows.append(u)
-            cols.append(v)
+            if u < n and v < n:
+                rows.append(u)
+                cols.append(v)
     adj = sp.csr_matrix(
         (np.ones(len(rows), np.float32), (rows, cols)), shape=(n, n)
     )
@@ -90,7 +106,7 @@ def load_planetoid(
 def load_mnist_knn(
     k: int = 15, cache_dir: str | Path = "data/processed"
 ) -> tuple[sp.csr_matrix, np.ndarray, np.ndarray]:
-    """Build a k-NN graph over MNIST-784. Cached as .npz."""
+    """Build a k-NN graph over MNIST-784. Cached as .npz with atomic writes."""
     from sklearn.datasets import fetch_openml
     from sklearn.neighbors import kneighbors_graph
 
@@ -107,8 +123,8 @@ def load_mnist_knn(
         ds = fetch_openml("mnist_784", version=1, as_frame=False, cache=True)
         features = ds.data.astype(np.float32)
         labels = ds.target.astype(int)
-        np.save(cache_feat, features)
-        np.save(cache_lbl, labels)
+        _atomic_save(features, cache_feat, lambda p, a: np.save(p, a))
+        _atomic_save(labels, cache_lbl, lambda p, a: np.save(p, a))
 
     if cache_npz.exists():
         adj = sp.load_npz(cache_npz)
@@ -117,21 +133,21 @@ def load_mnist_knn(
         adj = ((adj + adj.T) > 0).astype(np.float32).tocsr()
         adj.setdiag(0)
         adj.eliminate_zeros()
-        sp.save_npz(cache_npz, adj)
+        _atomic_save(adj, cache_npz, lambda p, a: sp.save_npz(str(p), a))
 
     return adj, features, labels
 
 
 def load_snap_edgelist(
     name: str, cache_dir: str | Path = "data/processed"
-) -> tuple[sp.csr_matrix, np.ndarray, None]:
-    """Load a SNAP undirected edge list. No labels; HD 'features' = adjacency rows."""
+) -> tuple[sp.csr_matrix, np.ndarray | None, None]:
+    """Load a SNAP undirected edge list. No labels. Features=None for n>5000."""
     if name not in SNAP_URLS:
         raise ValueError(f"unknown SNAP dataset: {name}")
     cache = Path(cache_dir) / name
     cache.mkdir(parents=True, exist_ok=True)
     raw = cache / f"{name}.txt.gz"
-    _download(SNAP_URLS[name], raw)
+    _atomic_download(SNAP_URLS[name], raw)
 
     edges: list[tuple[int, int]] = []
     nodes: set[int] = set()
@@ -156,8 +172,6 @@ def load_snap_edgelist(
     adj = ((adj + adj.T) > 0).astype(np.float32)
     adj.setdiag(0)
     adj.eliminate_zeros()
-    # No node features; pass adjacency-row vectors as HD coords (sparse->dense limited use).
-    # ZADU needs dense HD; we will subsample anyway for large graphs.
     features = adj.toarray().astype(np.float32) if n <= 5000 else None
     return adj, features, None
 
@@ -165,7 +179,7 @@ def load_snap_edgelist(
 def load_dataset(
     name: str, cache_dir: str | Path = "data/processed"
 ) -> tuple[sp.csr_matrix, np.ndarray | None, np.ndarray | None]:
-    """Dispatch to the right loader. None features means 'use adjacency-row distance'."""
+    """Dispatch to the right loader. None features means 'skip ZADU on this dataset'."""
     if name in ("cora", "citeseer", "pubmed"):
         return load_planetoid(name, cache_dir)
     if name == "mnist_knn":
