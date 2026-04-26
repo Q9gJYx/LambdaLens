@@ -2012,7 +2012,7 @@ wheels = [
 [[package]]
 name = "pysgtsnepi"
 version = "0.3.0"
-source = { editable = "../sgtsnepi" }
+source = { git = "https://github.com/qqgjyx/sgtsnepi.git?rev=b1131f8#b1131f8f435b0926122bb35f9f071ddd4bed39a9" }
 dependencies = [
     { name = "numba" },
     { name = "numpy" },
@@ -2020,33 +2020,6 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "scipy" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
-    { name = "matplotlib", marker = "extra == 'dev'", specifier = ">=3.5" },
-    { name = "matplotlib", marker = "extra == 'examples'", specifier = ">=3.5" },
-    { name = "matplotlib", marker = "extra == 'viz'", specifier = ">=3.5" },
-    { name = "mkdocs-awesome-pages-plugin", marker = "extra == 'docs'" },
-    { name = "mkdocs-jupyter", marker = "extra == 'docs'" },
-    { name = "mkdocs-material", marker = "extra == 'docs'" },
-    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'" },
-    { name = "nbclient", marker = "extra == 'dev'", specifier = ">=0.10" },
-    { name = "nbformat", marker = "extra == 'dev'", specifier = ">=5.10" },
-    { name = "numba", specifier = ">=0.61" },
-    { name = "numpy", specifier = ">=1.23" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pynndescent", specifier = ">=0.5" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "scikit-image", marker = "extra == 'dev'", specifier = ">=0.20" },
-    { name = "scikit-image", marker = "extra == 'examples'", specifier = ">=0.20" },
-    { name = "scikit-learn", specifier = ">=1.2" },
-    { name = "scipy", specifier = ">=1.9" },
-    { name = "seaborn", marker = "extra == 'viz'", specifier = ">=0.12" },
-]
-provides-extras = ["viz", "dev", "docs", "examples"]
 
 [[package]]
 name = "pytest"
@@ -2585,7 +2558,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "pyarrow", specifier = ">=15.0" },
-    { name = "pysgtsnepi", editable = "../sgtsnepi" },
+    { name = "pysgtsnepi", git = "https://github.com/qqgjyx/sgtsnepi.git?rev=b1131f8" },
     { name = "scikit-learn", specifier = ">=1.4" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "tqdm", specifier = ">=4.66" },

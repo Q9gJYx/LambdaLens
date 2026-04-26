@@ -27,11 +27,13 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-# Use the local pysgtsnepi working tree — the PyPI 0.3.0 wheel omits the
-# unweighted_to_weighted / local_weights Jaccard preprocessing that makes
-# lambda_rescaling a no-op on uniform-weight (i.e., unweighted symmetrized)
-# graphs. The local tree (commit b1131f8 or later) has the fix.
-pysgtsnepi = { path = "../sgtsnepi", editable = true }
+# Pin pysgtsnepi to the git commit that has the unweighted_to_weighted /
+# local_weights Jaccard preprocessing. The PyPI 0.3.0 wheel omits this fix,
+# making lambda_rescaling a mathematical no-op on unweighted symmetrized
+# graphs (uniform 1/degree column entries cancel through bisection +
+# per-column renormalization, producing identical embeddings across all
+# lambda values). qqgjyx/sgtsnepi@b1131f8 (Apr 2026) has the fix.
+pysgtsnepi = { git = "https://github.com/qqgjyx/sgtsnepi.git", rev = "b1131f8" }
 
 [tool.ruff]
 line-length = 100
