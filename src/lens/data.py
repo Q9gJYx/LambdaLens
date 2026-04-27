@@ -24,14 +24,35 @@ SNAP_URLS = {
 
 
 def _atomic_download(url: str, dst: Path) -> None:
-    """Download url to dst atomically via tmp+rename. Idempotent."""
+    """Download url to dst atomically via tmp+rename. Idempotent, race-safe.
+
+    Uses a per-process tempfile so concurrent ProcessPool workers downloading
+    the same URL don't clobber each other's tmpfile. os.replace is atomic on
+    POSIX; whichever process wins the rename is fine since all write the same
+    content.
+    """
+    import tempfile
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists():
         return
-    tmp = dst.with_suffix(dst.suffix + ".tmp")
-    with ur.urlopen(url) as r, open(tmp, "wb") as f:
-        f.write(r.read())
-    os.replace(tmp, dst)
+    fd, tmp_str = tempfile.mkstemp(dir=dst.parent, suffix=".tmp")
+    try:
+        with ur.urlopen(url) as r:
+            os.write(fd, r.read())
+        os.close(fd)
+        os.replace(tmp_str, dst)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(tmp_str)
+        except OSError:
+            pass
+        if dst.exists():
+            return  # another process finished the download; all good
+        raise
 
 
 def _atomic_save_npy(arr: np.ndarray, dst: Path) -> None:
