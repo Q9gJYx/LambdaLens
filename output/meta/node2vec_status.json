@@ -1,0 +1,8 @@
+{
+  "status": "aborted",
+  "method": "node2vec_umap",
+  "seed": 42,
+  "reason": "time_exceeded_elapsed=90.0m",
+  "peak_rss_gb": 138.51250839233398,
+  "elapsed_s": 5404.0233515976
+}

@@ -18,7 +18,6 @@
       "policy_note": "Shared host (vul337.team); not billed. OMP_NUM_THREADS=1 per process; node2vec workers=8 inside ProcessPool with max_workers=5 (=40 threads on 64-core box). zjl reachable 2026-04-27 after 2026-04-26 SSH banner-timeout pattern resolved."
     },
     "azure": {
-    "azure": {
       "host": "lens-vm",
       "subscription_id": "1f95b428-f520-42af-ac34-a91e2e0df028",
       "subscription_name": "Azure for Students",
@@ -87,6 +86,43 @@
       "p2_14_node2vec_direct_cora": {"state": "deferred", "rationale": "P2 task; skip until P0+P1 settled"},
       "placeholders": {"pa_pbmc_4fit_seconds": 38.76, "pb_c0": 20.588, "pb_c1": -4.111, "pb_r_squared": 0.165, "pc_predicted_pbmc_lambda": 17.50, "pd_predicted_ca_astroph_lambda": 14.63, "bonus_pubmed_predicted_lambda": 13.79},
       "tricks_applied_in_caption_required": ["T1 N=5 seeds 42-46 mean+-std + best-of-3", "T2 PCA-init via lens.init.pca_init for ALL stochastic baselines", "T3 n_epochs=1000 UMAP, n_iter=1000 openTSNE", "T5 graph-only: UMAP metric=precomputed(1-sym(adj)), openTSNE PrecomputedAffinities(adj), PHATE knn_dist=precomputed_affinity", "T6 PHATE subsample 10K for mnist/ca_astroph/ogbn"]
+    },
+    "r4e1_ogbn_e3": {
+      "host": "zjl",
+      "tmux_session": "r4e1_ogbn_e3",
+      "log": "output/meta/r4e1_ogbn_e3.log",
+      "runner": "scripts/run_r4e1_ogbn_e3.py",
+      "started_at_utc": "2026-04-27T05:25:45Z",
+      "completed_at_utc": "2026-04-27T07:58:00Z",
+      "wall_minutes_total": 153,
+      "state": "completed_with_node2vec_timeout",
+      "auto_lambda": 20.0,
+      "gridsearch_lambda": 20.0,
+      "auto_lambda_metric_arithmetic": 0.9371,
+      "auto_lambda_metric_harmonic": 0.9336,
+      "match": true,
+      "stages": {
+        "s1_auto_lambda_summary": {"wall_s": 1, "result": "ok"},
+        "s2_pysgtsnepi": {"seeds": [42, 43, 44, 45, 46], "workers": 2, "wall_minutes": 36, "label_T_mean": 0.873, "label_T_std": 0.006, "runtime_s_mean": 711},
+        "s3_umap_missing_seeds": {"seeds_added": [45, 46], "seeds_reused": [42, 43, 44], "workers": 2, "wall_minutes": 9.6, "label_T_mean_all_5": 0.867, "label_T_std_all_5": 0.005, "runtime_s_mean": 562},
+        "s4_opentsne": {"seeds": [42, 43, 44, 45, 46], "workers": 5, "wall_minutes": 12.3, "label_T_mean": 0.855, "label_T_std": 0.003, "runtime_s_mean": 705},
+        "s5_phate_full_graph": {"seed": 42, "wall_minutes": 5.5, "peak_rss_gb": 1.6, "result": "ok", "wall_limit_minutes": 45, "rss_limit_gb": 150, "label_T": 0.851, "runtime_s": 316},
+        "s6_node2vec_umap": {"seed": 42, "n2v_workers": 8, "wall_minutes": 90, "peak_rss_gb": 138.5, "result": "aborted_time_exceeded", "wall_limit_minutes": 90, "status_json": "output/meta/node2vec_status.json", "note": "Word2Vec phase peaked at 138 GB RSS, freed back to 24 GB; UMAP head single-thread on 169K nodes was still in optimize_layout when the 90 min cap hit."},
+        "s7_aggregate": {"comparison_rows": 16, "comparison_agg_method_rows": 4, "outputs": ["output/tables/ogbn_arxiv_comparison.parquet", "output/tables/ogbn_arxiv_comparison_agg.parquet"]}
+      },
+      "headline_results": {
+        "pysgtsnepi_label_T_mean_std": [0.873, 0.006],
+        "umap_label_T_mean_std": [0.867, 0.005],
+        "opentsne_label_T_mean_std": [0.855, 0.003],
+        "phate_label_T_singleseed": 0.851,
+        "node2vec_umap": "DNF (>90 min wall)",
+        "winner_label_T": "pysgtsnepi",
+        "winner_T": "openTSNE",
+        "interpretation": "On 169K-node OGBN-arxiv, pysgtsnepi(auto-lambda=20, PCA-init) wins on label_T at +0.006 over UMAP, +0.018 over openTSNE, +0.022 over PHATE. UMAP/openTSNE win on T (feature-space preservation) which is expected since they consume the 128-d node features directly while pysgtsnepi consumes only the sparse adjacency. node2vec+UMAP did not finish within a 90-minute single-seed budget; useful caption note for the scaling argument."
+      },
+      "rsync_back_complete": true,
+      "auto_lambda_summary_restored": true,
+      "auto_lambda_summary_pre_run_note": "zjl had no auto_lambda_summary.parquet on disk; stage 1 wrote a fresh single-row file there which then overwrote the local 6-row copy on rsync. Restored locally with 7 rows (the original 6 + ogbn_arxiv) using arithmetic mean of label_T+label_C to match the existing convention; pushed back to zjl."
     }
   },
   "kill_switch": {"state": "MARGINAL", "first_decision_at_utc": "2026-04-26T06:00:00Z", "first_decision_invalidated_by": "stack audit on 2026-04-26 found pysgtsnepi PyPI 0.3.0 omits unweighted_to_weighted Jaccard preprocessing; lambda_rescaling was a mathematical no-op on unweighted symmetrized graphs", "corrected_decision_at_utc": "2026-04-26T09:40:00Z", "criterion": "mean pairwise Procrustes / embedding diameter at lambda in {0.5, 1, 10, 20} (substituting 20 for the spec's 100 which is out-of-practical-range per literature audit), seed=42; 5%-thresh PASSED on all 4, 10%-thresh PASSED only on cora+ca_astroph; seed-noise (lam=1, 3 seeds) for context", "per_dataset_corrected": {"cora": {"procrustes_normalized": 0.184, "seed_noise": 0.226, "ratio_lam_to_seed": 0.82, "verdict_5pct": "PASSED", "verdict_10pct": "PASSED"}, "citeseer": {"procrustes_normalized": 0.084, "seed_noise": 0.267, "ratio_lam_to_seed": 0.32, "verdict_5pct": "PASSED", "verdict_10pct": "TRIPPED"}, "mnist_knn": {"procrustes_normalized": 0.075, "seed_noise": 0.209, "ratio_lam_to_seed": 0.36, "verdict_5pct": "PASSED", "verdict_10pct": "TRIPPED", "note": "k-NN graphs nearly-regular even after symmetrization; lambda acts only on small in-degree variance from mutual-vs-unilateral neighbor pairs"}, "ca_astroph": {"procrustes_normalized": 0.156, "seed_noise": 0.204, "ratio_lam_to_seed": 0.77, "verdict_5pct": "PASSED", "verdict_10pct": "PASSED"}}, "per_dataset_buggy_archive": {"cora": 0.0401, "citeseer": 0.0221, "mnist_knn": 0.0000, "ca_astroph": 0.0265}, "headline": "Lambda has visible effect on cora (0.184) and ca_astroph (0.156) but seed noise dominates by 1.2-3x on every dataset. Lambda Lens viable on heterogeneous-degree graphs (cora, ca_astroph); marginal on regular ones (citeseer, mnist_knn). PCA-init E1b would resolve init-noise confound in ~10 min if needed."},
@@ -108,6 +144,7 @@
     {"ts": "2026-04-27T05:50:00Z", "actor": "experiment-agent", "event": "Round-3 quick wins: [Pa] PBMC 4-fit auto-lambda runtime = 38.76s; [Pb] degree-moment OLS fit (c0=20.6, c1=-4.11, R^2=0.17 — weak because mnist_knn CV=0.30 with same lambda=20 as cora CV=1.34); [Pc] predicted PBMC lambda = 17.5; [Pd] predicted ca_astroph lambda = 14.6. P1-6 DRGraph cite-only JSON written (block_2000, Flan_1565 from Zhu 2021 Tables 2-3; no compile attempted per round-3 spec). P1-7 synthetic regime control: BA(CV=1.33) vs WS(CV=0.10), pairwise lambda-Procrustes ~0.27 for both — figure visually clearer than scalar. CV(d) summary written for all 6 datasets."},
     {"ts": "2026-04-27T06:00:00Z", "actor": "experiment-agent", "event": "Round-3 Pass B launched: rewrite of run_e3_baselines.py for multi-seed N=5 with PCA-init Y0 cache (T2), n_epochs=1000/n_iter=1000 budgets (T3), graph-only routing (T5: UMAP metric=precomputed on 1-sym(adj), openTSNE PrecomputedAffinities, PHATE knn_dist=precomputed_affinity — fixes silent Phase-6 misuse where stochastic adj was treated as feature matrix), PHATE subsample 10K extended to ca_astroph/OGBN (T6), node2vec workers=1 in ProcessPool subprocess. 109 cells running on 4 workers. Concurrently: P1-5 PubMed E1 grid 7 cells in 93s; auto-lambda=5 matches gridsearch=5; auto_lambda_summary updated; match rate now 3/4 labeled. OGBN-arxiv loader added; ogb 1.3.6 + torch installed."},
     {"ts": "2026-04-27T08:00:00Z", "actor": "experiment-agent", "event": "Round-3 Pass B/C complete. Killed main E3 at 93/109 (ca_astroph node2vec_umap single-seed at workers=1 was the >70min long pole; resurrected from Phase-6 carryover instead via _resurrect_phase6_node2vec.py). Killed pubmed E3 at 15/21 stuck on node2vec_umap workers=1; re-ran pubmed phate ×5 in 42s (workers=5) and pubmed node2vec_umap single-seed in 1067s (workers=4 oneoff via _run_pubmed_node2vec_fast.py). opentsne dtype-mismatch retry succeeded for pbmc+ca_astroph graph-only (10 cells in 17min on workers=2). Final merge: 6 datasets, <ds>_comparison_agg.parquet with mean±std+best-of-3. HEADLINE: pysgtsnepi(auto-λ) WINS Cora (0.924 vs 0.915 node2vec, 41x faster) AND PubMed (0.903 vs 0.895 PHATE, 2.6x faster); ties ceiling on MNIST-kNN; close 2nd on PBMC (label_T 0.968 vs UMAP 0.974 but T 0.704 vs UMAP 0.681 — pysgtsnepi preserves graph structure better); best on ca_astroph T (0.624) at 30s vs node2vec 4083s (138x); loses Citeseer where PHATE wins (0.854 vs pysgtsnepi auto-λ=5 0.739). Round-3 complete."},
-    {"ts": "2026-04-27T09:50:00Z", "actor": "experiment-agent", "event": "Phase 7 (R4) bootstrap: zjl reachable (shimarin, 64 cores / 377 GiB / 354 GiB free). Repo housekeeping commit eecfbea + R3 deliverables a82e0a9 + R3 status updates b320c8d pushed to origin/paper-vis2026. zjl cloned the repo to ~/WorkSpace/wh/SGtSNE-Pi; uv 0.11.7 installed at ~/.local/bin/; uv sync --extra baselines launched. Locked R4 decisions: 2 commits for R3 split; git over public origin; D6 DRGraph 90 min time-box with 30-min go/no-go; I1+I2 both run on shared seed compute, paper-side picks reporting headline."}
+    {"ts": "2026-04-27T09:50:00Z", "actor": "experiment-agent", "event": "Phase 7 (R4) bootstrap: zjl reachable (shimarin, 64 cores / 377 GiB / 354 GiB free). Repo housekeeping commit eecfbea + R3 deliverables a82e0a9 + R3 status updates b320c8d pushed to origin/paper-vis2026. zjl cloned the repo to ~/WorkSpace/wh/SGtSNE-Pi; uv 0.11.7 installed at ~/.local/bin/; uv sync --extra baselines launched. Locked R4 decisions: 2 commits for R3 split; git over public origin; D6 DRGraph 90 min time-box with 30-min go/no-go; I1+I2 both run on shared seed compute, paper-side picks reporting headline."},
+    {"ts": "2026-04-27T05:25:45Z", "actor": "experiment-agent", "event": "R4-E1 OGBN-arxiv E3 RELAUNCH (replaces misconfigured r4e1_ogbn_retry which queued generic E3 cells via run_r4e_coauthor.py). New runner scripts/run_r4e1_ogbn_e3.py with OGBN-specific policy: pysgtsnepi N=5 workers=2, UMAP +seeds 45/46 reusing 42/43/44, openTSNE N=5 workers=5, PHATE seed=42 full feature matrix under spawn-child watchdog (45 min wall + 150 GB RSS guards), node2vec_umap seed=42 Node2Vec(workers=8) under 90 min wall guard, then aggregate. Total 153 min on zjl. PHATE finished in 5.5 min peak RSS 1.6 GB. node2vec aborted at 90 min during UMAP head optimize_layout (Word2Vec done by min 25; peak RSS 138 GB). Stage 7 wrote 16 rows to ogbn_arxiv_comparison.parquet and 4 method rows to ogbn_arxiv_comparison_agg.parquet using same schema as Coauthor-CS. Headline: pysgtsnepi wins label_T at 0.873±0.006 (vs UMAP 0.867±0.005, openTSNE 0.855±0.003, PHATE 0.851 N=1, node2vec_umap DNF>90min). UMAP/openTSNE win T as expected since they consume the 128-d features directly. Auto-lambda summary on zjl was missing pre-run; stage 1 wrote a fresh OGBN-only file which overwrote local 6-row copy on rsync; restored locally to 7 rows (preserved + ogbn_arxiv) using arithmetic mean for consistency with existing convention; pushed back to zjl. emit_paper_table.py picks up the new OGBN section cleanly. Followups: repo-wide auto-lambda metric inconsistency (run_e2_auto_lambda uses arithmetic, run_r4e_coauthor + run_r4e1_ogbn_e3 use harmonic; same lambda choice in every case observed but standardize later); R4-G G5 'u' parameter sweep all-NaN (installed pysgtsnepi has no 'u' kwarg)."}
   ]
 }

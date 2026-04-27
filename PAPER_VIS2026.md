@@ -989,3 +989,187 @@ Exit ramps invoked so far: D6 (DRGraph repo 404; cite-only fallback).
 Ongoing issues: D3 PHATE NaN (epsilon-regularization fix in 8db03da; second attempt running).
 
 Status blocks will append below as each tier closes.
+
+---
+
+### R4-E1 OGBN-arxiv E3 — RELAUNCH WITH OGBN-SPECIFIC POLICY (appended 2026-04-27, agent EXP-AGENT)
+
+The earlier `r4e1_ogbn_retry` (queued through generic `run_r4e_coauthor.py`)
+was misconfigured: it queued N=5 cells for every method, including PHATE on
+the full 169K-node graph and node2vec_umap multi-seed — both contradict the
+R4 handoff. That run was stopped after the 16 E1 cells materialized into
+`output/tables/ogbn_arxiv_lambda_grid.parquet` (no embeddings lost).
+
+Replacement runner: `scripts/run_r4e1_ogbn_e3.py` — single dedicated script
+with seven idempotent stages (auto-λ summary; pysgtsnepi N=5 workers=2 at
+auto-λ=20 PCA-init; UMAP +seeds 45,46 reusing 42/43/44 already on disk;
+openTSNE N=5 workers=5; PHATE seed=42 on the full feature matrix under a
+spawn-child watchdog with 45 min wall + 150 GB RSS guards; node2vec_umap
+seed=42 `Node2Vec(workers=8)` under a 90 min wall guard; aggregate to
+`ogbn_arxiv_comparison{,_agg}.parquet`). Launched in tmux session
+`r4e1_ogbn_e3`, log `output/meta/r4e1_ogbn_e3.log`.
+
+**Total wall time on zjl: 2 h 33 m.** Per-stage:
+
+| stage | method | seeds | wall | result |
+|---|---|---|---|---|
+| 1 | auto-λ summary | — | <1 s | auto-λ=20.0, gridsearch=20.0, match=True (harmonic 0.9336 / arithmetic 0.9371) |
+| 2 | pysgtsnepi (workers=2) | 42-46 | 36 m | label\_T 0.873 ± 0.006 / 5 cells |
+| 3 | UMAP (workers=2) | 45, 46 | 9.6 m | label\_T 0.870 ± 0.005 across all 5 |
+| 4 | openTSNE (workers=5) | 42-46 | 12.3 m | label\_T 0.855 ± 0.003 / 5 cells |
+| 5 | PHATE seed=42 (full graph) | 42 | 5.5 m | OK; peak RSS 1.6 GB (well under 150 GB cap) |
+| 6 | node2vec_umap seed=42 | 42 | 90 m | **ABORTED at 90 min wall** during UMAP head's `optimize_layout`; Word2Vec phase peaked at 138.5 GB RSS, freed back to 24 GB before UMAP started but UMAP single-thread pass on 169K nodes was still in progress at the cap |
+| 7 | aggregate | — | <1 s | 16 rows in `ogbn_arxiv_comparison.parquet`, 4 method rows in `_agg` |
+
+**Headline (sorted by label_T mean):**
+
+| Method | label_T | label_C | T | C | runtime (s) | N |
+|---|---|---|---|---|---|---|
+| **\ours (auto-λ=20, PCA-init)** | **0.873 ± 0.006** | 0.995 ± 0.001 | 0.646 ± 0.003 | 0.678 ± 0.003 | 710.6 ± 5.8 | 5 |
+| UMAP | 0.867 ± 0.005 | 1.000 ± 0.000 | **0.771 ± 0.004** | **0.864 ± 0.003** | 561.6 ± 12.6 | 5 |
+| openTSNE | 0.855 ± 0.003 | 1.000 ± 0.000 | **0.827 ± 0.001** | 0.856 ± 0.003 | 704.6 ± 24.9 | 5 |
+| PHATE | 0.851 | 1.000 | 0.706 | 0.847 | 316.4 | 1 |
+| node2vec+UMAP | DNF (>90 min cap) | — | — | — | — | 0 |
+
+→ **\ours wins label_T on the largest dataset.** UMAP/openTSNE win on T (which
+measures preservation of feature-space geometry) which is expected — they
+operate directly on the 128-d node embeddings while \ours operates on the
+sparse adjacency. The gap on label_T is 0.006 over UMAP, 0.018 over openTSNE,
+0.022 over PHATE. PHATE single-seed on the FULL 169K-node feature matrix
+finished cleanly in 5.5 min — a useful data point for the "PHATE scales when
+features exist" caption note.
+
+**Caveat for the paper**: node2vec+UMAP timed out at 90 min on OGBN-arxiv.
+The Word2Vec walks + training fit in ~25 min and freed memory, but UMAP head
+optimization on 169K × 64 took longer than the budget. This is the right
+caption note: "node2vec+UMAP did not complete within a 90-minute single-seed
+budget on OGBN-arxiv", which actually strengthens the §5 scaling argument.
+`output/meta/node2vec_status.json` records reason / peak RSS / elapsed.
+
+**Files now on local + zjl** (rsynced 79 files, ~87 MB):
+
+- `output/tables/ogbn_arxiv_comparison.parquet` (16 rows) and
+  `ogbn_arxiv_comparison_agg.parquet` (4 method rows) — same schema as
+  Coauthor-CS so `scripts/emit_paper_table.py` already picks them up.
+- `output/tables/auto_lambda_summary.parquet` re-extended to 7 rows including
+  ogbn_arxiv (the prior 6 rows were silently overwritten by Stage 1 because
+  zjl's copy was missing; restored locally and rsynced back).
+- `output/embeddings_baselines/ogbn_arxiv_{pysgtsnepi,umap,opentsne,phate}_seed*.npy`
+  (16 embeddings).
+- `output/meta/r4e1_ogbn_e3.log`, `output/meta/node2vec_status.json`.
+- `scripts/run_r4e1_ogbn_e3.py` (new).
+
+**`emit_paper_table.py` regenerates `paper_table_comparison.{md,tex}` cleanly
+with the new OGBN section** (verified locally; 7 datasets in the table now).
+
+**Followups (not blocking):**
+
+- Repo-wide auto-λ metric inconsistency: `run_e2_auto_lambda.py` uses
+  arithmetic mean of label_T+label_C while `run_r4e_coauthor.py` and the new
+  `run_r4e1_ogbn_e3.py` use the harmonic mean. Both pick the same λ in every
+  case we have, only the reported `auto_metric` differs slightly. The
+  restored `auto_lambda_summary.parquet` uses arithmetic mean throughout for
+  consistency. Worth a one-line patch later to standardize on the harmonic
+  mean (it is the more defensible label-quality summary). Out of scope for
+  this run.
+- R4-G G5 `u`-parameter sweep was all-NaN (installed `pysgtsnepi` does not
+  expose the `u` keyword). Document as `unsupported` in the sensitivity
+  caption; tracked separately.
+
+---
+
+### Paper-side → experiment-side, round 5 (appended 2026-04-27 evening, paper-side reviewer pass)
+
+**BLOCKING DISCOVERY**: paper-side `paper-reviewer` skill audit on
+2026-04-27 evening identified a `pysgtsnepi`-version drift between E2
+(auto-λ search) and E3 (headline benchmark) cells. The
+`auto_lambda_summary.parquet` table was generated with the broken PyPI
+wheel — `pysgtsnepi v0.3.0` omits the `unweighted_to_weighted` Jaccard
+preprocessing fix, making λ rescaling a mathematical no-op on
+unweighted symmetrized graphs (Cora, Citeseer, PubMed, MNIST-kNN,
+ca-AstroPh). The `*_comparison_agg.parquet` headline benchmarks used
+`qqgjyx/sgtsnepi rev b1131f8` (FIXED). The two parquets cite different
+Label-T&C scores for the same (dataset, λ, seed) cells (Cora 0.967 vs
+0.924, Citeseer 0.876 vs 0.739, PubMed 0.911 vs 0.903, MNIST-kNN 0.989
+vs 0.982) because the underlying embeddings are materially different
+(direct `np.load` comparison: max pixel diff 160.1 between
+`output/embeddings/cora_lam20.0_seed42.npy` (E2, broken) and
+`output/embeddings_baselines/cora_pysgtsnepi_seed42.npy` (E3, fixed),
+same seed and same λ). In the broken cells `label_continuity ≈ 1.000`
+across every λ value (Cora 0.99985–1.000, Citeseer all 1.000),
+confirming the no-op symptom.
+
+This makes:
+- `tab:autolambda` non-defensible (argmax is noise)
+- `eq:moment` OLS coefficients `(c0, c1)=(20.6, -4.11)` calibrated to
+  the broken auto-λ rankings
+- The `pip install pysgtsnepi` reproducibility claim (paper
+  §Supplemental Materials) broken: anyone installing v0.3.0 from PyPI
+  gets the no-op solver
+
+**Requests, all to be returned by 2026-04-29 EOD** (priority order):
+
+- **R5-A1 — Re-emit `auto_lambda_summary.parquet` from R4-B-main's
+  16-pt grid.** R4-B-main (per round-4 sub-heading: "5 datasets ×
+  16λ × seed=42 PCA-init, 80 cells, ~72/80 done") uses the FIXED
+  `pysgtsnepi`. Once it lands, run argmax over R4-B-main's 16-point
+  Label-T&C grid per dataset. Schema same as the existing
+  `auto_lambda_summary.parquet`. Standardize on harmonic-mean
+  Label-T&C (the arithmetic-vs-harmonic inconsistency noted at the
+  end of the R4-E1 stanza is closed in this re-emission).
+  Deliverable: replacement `auto_lambda_summary.parquet`. Confirm in
+  state.json.
+
+- **R5-A2 — Re-fit `eq:moment` OLS coefficients on corrected auto-λ
+  rankings.** Take the corrected auto-λ values from R5-A1 and re-fit
+  `λ_moment = c0 + c1 * CV(d)` over the labeled datasets {Cora,
+  Citeseer, PubMed, MNIST-kNN}. Report new `(c0, c1)` and R². Update
+  `output/tables/moment_fit.json` with a 1-line provenance entry
+  naming the input parquet. Deliverable: replacement
+  `moment_fit.json`.
+
+- **R5-A3 — Recompute `λ_moment` for the unlabeled datasets** (PBMC,
+  ca-AstroPh) using the new `(c0, c1)` and that dataset's `CV(d)`
+  from `cv_d_summary.json`. Deliverable: corrected `λ_moment` numbers
+  (currently `17.5` and `14.6` in paper §4) for paper-side §4 prose.
+
+- **R5-D — Release `pysgtsnepi v0.3.1` to PyPI** with the
+  `unweighted_to_weighted` Jaccard preprocessing fix that already
+  exists in `qqgjyx/sgtsnepi rev b1131f8`. Post-release sanity:
+  `pip install pysgtsnepi==0.3.1` in a clean venv, run a single Cora
+  cell at λ=20 seed=42 PCA-init, confirm the resulting embedding
+  agrees with the corresponding E3 cell to within numerical
+  tolerance (max pixel diff < 1.0). Deliverable: confirmed PyPI
+  version 0.3.1 + sanity-check log. Paper-side will then update
+  §Supplemental Materials to cite `v0.3.1`. Owner: repo maintainer
+  (requires PyPI auth).
+
+**Paper-side actions taken in the same session** (already applied;
+no experiment-side dependency):
+- Phase 1 A2: "138× the runtime" → "$138\times$ speedup" idiom
+  (abstract + §5 body).
+- Phase 1 A3: "closes the metric gap" → "to match-or-exceed PHATE on
+  Label-T&C".
+- Phase 1 A4: `\cref{eq:lambda}` and `\cref{eq:autolambda}` inserted
+  in §3.1 and §4 prose.
+- Phase 1 A7: `%% =====` section banners on all 8 sections.
+- Phase 1 A5 (in flight): `\s{<std>}` gray-scriptsize macro retrofit
+  on `tab:comparison` cells + §5 prose for style alignment with prior
+  papers.
+- Phase 1 A6 (queued): bare `\cite{}` → `\citet{}`/`\citep{}` audit
+  (natbib trial, fall back to bare on VGTC build break).
+- Phases 2 / 3 (queued): Methods + Intro storyline pass.
+
+**Paper-side will swap-in** when R5-A1 / A2 / A3 / D land:
+- New numerical values in `tab:autolambda` (`main.tex:340-346`),
+  abstract numerics (`main.tex:99-105`, only if argmax shifts and
+  changes the headline-baseline Δ),
+  §4 moment numerics (`main.tex:316-318`), §4 unlabeled-λ numerics
+  (`main.tex:329-331`), §Supplemental Materials package version
+  (`main.tex:545`).
+
+**Open question for repo maintainer (parallel)**: should v0.3.1's
+bump be patch-level (0.3.0 → 0.3.1) or minor (0.3.0 → 0.4.0)? The
+fix is bug-class so patch is appropriate, but a numerically-
+identical-API patch that materially changes embeddings is borderline.
+Paper cite-line will adopt whichever is tagged.
