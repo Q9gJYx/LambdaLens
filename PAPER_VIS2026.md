@@ -950,22 +950,42 @@ Working dir `~/WorkSpace/wh/SGtSNE-Pi`. `OMP_NUM_THREADS=1` per process,
 `Node2Vec(workers=8)` × `ProcessPool(max_workers=5)` for the long node2vec
 cells (40 threads on 64 cores). Local Mac for figure rendering.
 
-**Status (2026-04-27)**:
+**Status (2026-04-27, ~10:50 UTC)**:
 
-- Phase 0 (R3 commit + zjl bootstrap): **in progress**.
-  - 0.1 R3 deliverables + status pushed to `origin/paper-vis2026`. ✓
-  - 0.2 zjl: uv 0.11.7 installed; repo cloned; `paper-vis2026` checked
-    out at `b320c8d`; `uv sync --extra baselines` running.
-  - 0.3 `state.json compute.zjl` block populated.
-  - 0.4 This round-4 sub-heading.
-- Phase 1 (A inset refresh, B 16-pt λ grid, C paper table): pending.
-- Phase 2 (D1 MNIST PHATE, D2 MNIST node2vec, D3 ca-astroph PHATE,
-  D4 node2vec multi-seed, D5 T4 sweep, D6 DRGraph compile): pending.
-- Phase 3 (E1 ogbn-arxiv, E2 Coauthor-CS, E3 Coauthor-Physics): pending.
-- Phase 4 (F ablation, G1-G6 sensitivity, H1-H3 figures): pending.
-- Phase 5 (I1 N=10 best-K, I2 Wilcoxon, J1 ogbn-products): pending.
+- Phase 0 (R3 commit + zjl bootstrap): **COMPLETE**.
+  - 3 commits pushed (`eecfbea` housekeeping, `a82e0a9` R3 deliverables,
+    `b320c8d` R3 status, `ebaebd0` zjl block + R4-B prep, `b33fdf0` data
+    caches, `fe1a486` Phase 1-4 scripts, `8db03da` bug fixes, `73fb17e`
+    atomic download race fix).
+  - zjl: uv 0.11.7, repo at `73fb17e`, all 6 datasets load from local
+    cache in <2s. 64 cores, 243 GiB free RAM.
+- Phase 1 (A inset refresh, B 16-pt λ grid, C paper table): **in progress**.
+  - B-main (5 datasets × 16λ × seed=42 PCA-init, 80 cells): ~72/80, ~2 min left.
+  - B-pbmc (PBMC 16-pt grid, 16 cells): DONE.
+  - A-cora/mnist (seeds 43-46 × λ ∈ {1,5,20,80}): ~20/32 done.
+  - A-pbmc (seeds 43-46 × λ ∈ {1,5,20,80}, uw=False): DONE (32 rows total).
+  - B-2 (auto-λ refresh pubmed+pbmc), B-3 (moment refit), C (emit table): pending B-main finish.
+- Phase 2 (D1-D6): **in progress**.
+  - D1 MNIST PHATE pilot: DONE (127s, LT=0.969, T=0.852). N=5 running.
+  - D2 MNIST node2vec pilot: running (70K nodes, ~30 min expected).
+  - D3 ca-astroph PHATE N=5: running (5 cells, with epsilon-regularization fix
+    for disconnected-node NaN issue).
+  - D4 node2vec multi-seed PBMC+ca-astroph+PubMed: running (15 cells, 5 workers).
+  - D5 T4 sweep Cora+PubMed: running (16/30 cells done).
+  - **D6 DRGraph EXIT RAMP INVOKED**: ZJULearning/DRGraph repo returns HTTP 404
+    from zjl; git clone and curl tarball both fail. Repo appears deleted or
+    made private since R3 audit. Fall back to cite-only
+    `output/tables/drgraph_published_numbers.json` (block_2000, Flan_1565 from
+    Zhu 2021 Tables 2-3).
+- Phase 3 (E1 ogbn-arxiv, E2 Coauthor-CS, E3 Coauthor-Physics): **in progress**.
+  - E1 ogbn-arxiv: launched (169K nodes, 2-3h expected; no PHATE due to OOM risk,
+    T6 subsample applied).
+  - E2 Coauthor-CS: running (E1 16-pt grid, npz download fixed).
+- Phase 4 (F ablation, G1-G6 sensitivity, H1-H3 figures): pending Phase 2 data.
+- Phase 5 (I1 N=10 best-K, I2 Wilcoxon): pending Phase 2+3 data.
 - Phase 6 (final R4 handoff): pending.
 
-Status blocks will append below as each tier closes. Exit-ramp invocations
-(D6 compile failure, D1 PHATE OOM, E1 PHATE OOM) will be logged with the
-fallback used.
+Exit ramps invoked so far: D6 (DRGraph repo 404; cite-only fallback).
+Ongoing issues: D3 PHATE NaN (epsilon-regularization fix in 8db03da; second attempt running).
+
+Status blocks will append below as each tier closes.
