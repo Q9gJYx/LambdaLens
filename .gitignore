@@ -228,7 +228,27 @@ data/raw/*
 !data/raw/.gitkeep
 data/interim/*
 !data/interim/.gitkeep
+
+# Large generated caches (mnist: 225 MB; ogbn_arxiv: 51 MB) — refetch from CDN.
+# Small deterministic caches below are tracked so clones are self-contained.
 data/processed/*
 !data/processed/.gitkeep
+# Planetoid: cora, citeseer, ca_astroph, pubmed (~11 MB total).
+# Committed because the planetoid CDN is unreliable from some compute hosts.
+!data/processed/cora/
+!data/processed/cora/*
+!data/processed/citeseer/
+!data/processed/citeseer/*
+!data/processed/ca_astroph/
+!data/processed/ca_astroph/*
+!data/processed/pubmed/
+!data/processed/pubmed/*
+# PBMC: graph tarball + curated HDBSCAN labels (R3 deliverable).
+!data/processed/pbmc/
+data/processed/pbmc/*
+!data/processed/pbmc/pbmc-graph.tar.gz
+!data/processed/pbmc/labels.npy
+!data/processed/pbmc/labels_provenance.json
+
 data/external/*
 !data/external/.gitkeep
