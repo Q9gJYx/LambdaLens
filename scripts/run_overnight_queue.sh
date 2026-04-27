@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
-# R4 overnight queue: chain remaining experiments sequentially.
-# Run inside a tmux session on zjl after `git pull`. All cells are
-# resume-safe via per-cell parquets, so this is idempotent.
+# R4 overnight queue: chain remaining experiments sequentially with hard
+# per-tier wall-clock caps so a single stuck worker can't eat the night.
+#
+# Resume-safe via per-cell parquets; relaunching skips done cells.
+# Each tier:
+#   - hard timeout (kills the tier when exceeded; queue continues)
+#   - state mark per outcome: completed / timeout / failed
+#   - log appended to a single overnight log
 #
 # Sequencing rationale:
-#   1. I1 first (N=10 extension on contested datasets) — cheap methods only,
-#      ~1.5h; lowest variance, blocks Wilcoxon.
-#   2. D4 finish (node2vec mid-seeds for pbmc/pubmed) — ~2h; uses workers=8.
-#   3. Sensitivity sweeps G2/G3/G4/G6 — small cells, ~1h total.
-#   4. J1 ogbn-products scale demo — ~30 min stretch.
-#   5. H3 cores scaling LAST so its timing readings aren't polluted by
-#      concurrent box load.
-#
-# Each tier runs in foreground inside this script (so we get sequential
-# logs) but uses ProcessPool internally for parallelism within the tier.
-# A failure in any tier is logged and the queue continues to the next.
+#   I1 -> D4 -> G2/G3/G4/G6 -> J1 -> I2 -> H3 last (clean box for timing)
+#   Final: re-merge cells, re-emit paper table, re-render H1/H2.
 
 set -u
 export OMP_NUM_THREADS=1
 export PYTHONUNBUFFERED=1
+export PATH="$HOME/.local/bin:$PATH"
 
 cd "${REPO_ROOT:-$HOME/WorkSpace/wh/SGtSNE-Pi}"
 LOG_DIR="output/meta"
@@ -28,163 +25,141 @@ STATE_JSON="$LOG_DIR/r4_overnight_state.json"
 
 date_utc() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 banner() { printf "\n========== [%s] %s ==========\n" "$(date_utc)" "$1" | tee -a "$QUEUE_LOG"; }
-mark()   { python3 -c "import json,sys; d=json.load(open('$STATE_JSON')) if __import__('os').path.exists('$STATE_JSON') else {}; d['$1']='$2'; d['updated']='$(date_utc)'; json.dump(d, open('$STATE_JSON','w'), indent=2)"; }
 
-# Initialize state
-[ ! -f "$STATE_JSON" ] && echo '{"started": "'"$(date_utc)"'"}' > "$STATE_JSON"
+# Atomic state.json updater. Writes to a tempfile then renames; tolerates
+# malformed prior content.
+mark() {
+    local key="$1"
+    local val="$2"
+    python3 - "$STATE_JSON" "$key" "$val" "$(date_utc)" <<'PYEOF'
+import json, os, sys, tempfile
+path, key, val, ts = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+try:
+    d = json.load(open(path)) if os.path.exists(path) else {}
+except Exception:
+    d = {}
+d[key] = val
+d["updated"] = ts
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", suffix=".tmp")
+with os.fdopen(fd, "w") as f:
+    json.dump(d, f, indent=2)
+os.replace(tmp, path)
+PYEOF
+}
 
-# Tier I1: N=5 → N=10 extension on contested datasets, cheap methods
-banner "Tier I1: N=10 extension {pbmc,citeseer,mnist_knn} × {umap,opentsne,phate,pysgtsnepi}"
-mark "i1_status" "running"
-if uv run python scripts/run_e3_baselines.py \
+# Run a tier with a hard timeout. $1 = state-key, $2 = wall-cap, $3..$N = cmd.
+run_tier() {
+    local key="$1"; shift
+    local cap="$1"; shift
+    mark "$key" "running"
+    banner "Tier $key (cap=$cap): $*"
+    set +e
+    timeout --kill-after=30s "$cap" "$@" >> "$QUEUE_LOG" 2>&1
+    local rc=$?
+    set -e
+    if [ "$rc" -eq 0 ]; then
+        mark "$key" "completed"
+        banner "Tier $key: COMPLETE (rc=0)"
+    elif [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+        mark "$key" "timeout"
+        banner "Tier $key: TIMEOUT after $cap (rc=$rc); continuing"
+    else
+        mark "$key" "failed"
+        banner "Tier $key: FAILED (rc=$rc); continuing"
+    fi
+    return 0
+}
+
+# Pre-flight: disk + tmux + python sanity
+banner "Pre-flight"
+free_gb=$(df -BG "$PWD" | awk 'NR==2 {print $4}' | tr -d 'G')
+echo "  disk free: ${free_gb}G" | tee -a "$QUEUE_LOG"
+if [ "${free_gb:-0}" -lt 30 ]; then
+    banner "ABORT: <30G free disk; queue not safe to launch"
+    mark "queue_status" "aborted_disk"
+    exit 1
+fi
+uv run python -c "import lens.data, lens.init, lens.metrics, lens.run; print('  lens import ok')" >> "$QUEUE_LOG" 2>&1 || {
+    banner "ABORT: lens package import failed"
+    mark "queue_status" "aborted_import"
+    exit 1
+}
+echo "  python: $(uv run python --version 2>&1)" | tee -a "$QUEUE_LOG"
+mark "queue_status" "running"
+mark "started" "$(date_utc)"
+
+# === Tier I1: N=5 -> N=10 extension on contested datasets, cheap methods ===
+run_tier i1 2.5h \
+    uv run python scripts/run_e3_baselines.py \
     --datasets pbmc citeseer mnist_knn \
     --methods pysgtsnepi umap opentsne phate \
     --seeds 47 48 49 50 51 \
     --max-workers 4 \
-    --phate-subsample-n 100000 \
-    >> "$QUEUE_LOG" 2>&1; then
-    mark "i1_status" "completed"
-    banner "Tier I1: COMPLETE"
-else
-    mark "i1_status" "failed"
-    banner "Tier I1: FAILED (continuing queue)"
-fi
+    --phate-subsample-n 100000
 
-# Tier D4 finish: node2vec multi-seed on pbmc + pubmed (have seed=42; need 43-46)
-banner "Tier D4-finish: node2vec multi-seed pbmc+pubmed seeds 43-46"
-mark "d4_status" "running"
-if uv run python scripts/run_r4d_node2vec_multiseed.py \
+# === Tier D4-finish: node2vec multi-seed pbmc + pubmed (have seed=42) ===
+# 4 cells × ~1600s on pbmc + 4 × ~1100s on pubmed = ~3h, cap at 4h
+run_tier d4 4h \
+    uv run python scripts/run_r4d_node2vec_multiseed.py \
     --datasets pbmc pubmed \
     --seeds 42 43 44 45 46 \
-    --max-workers 2 \
-    >> "$QUEUE_LOG" 2>&1; then
-    mark "d4_status" "completed"
-    banner "Tier D4-finish: COMPLETE"
-else
-    mark "d4_status" "failed"
-    banner "Tier D4-finish: FAILED (continuing)"
-fi
+    --max-workers 2
 
-# Tier G2 + G3 + G4 + G6 sensitivity sweeps
-banner "Tier G2/G3/G4/G6: openTSNE perplexity, pysgtsnepi n_iter, k-kNN, alpha"
-mark "g_status" "running"
-if uv run python scripts/run_r4g_sensitivity.py \
+# === Tier G2/G3/G4/G6 sensitivity sweeps ===
+run_tier g 1.5h \
+    uv run python scripts/run_r4g_sensitivity.py \
     --sweeps g2 g3 g4 g6 \
     --datasets cora pubmed \
-    --max-workers 4 \
-    >> "$QUEUE_LOG" 2>&1; then
-    mark "g_status" "completed"
-    banner "Tier G: COMPLETE"
-else
-    mark "g_status" "failed"
-    banner "Tier G: FAILED (continuing)"
-fi
+    --max-workers 4
 
-# Tier J1: ogbn-products scale demo (stretch)
-banner "Tier J1: ogbn-products scale demo (n=2.4M, single seed)"
-mark "j1_status" "running"
-if uv run python -c "
-import time, numpy as np
-from pathlib import Path
-import pandas as pd
-print('[J1] loading ogbn-products...')
-from ogb.nodeproppred import NodePropPredDataset
-import scipy.sparse as sp
-ds = NodePropPredDataset(name='ogbn-products', root='data/processed/ogbn_products')
-graph, labels = ds[0]
-n = int(graph['num_nodes'])
-edge_index = graph['edge_index']
-adj = sp.csr_matrix((np.ones(edge_index.shape[1], np.float32), (edge_index[0], edge_index[1])), shape=(n, n))
-adj = ((adj + adj.T) > 0).astype(np.float32); adj.setdiag(0); adj.eliminate_zeros()
-labels = np.asarray(labels, dtype=int).ravel()
-print(f'[J1] n={n} m={adj.nnz//2} loaded')
-from lens.init import pca_init
-from pysgtsnepi import sgtsnepi
-print('[J1] computing PCA-init Y0...')
-Y0 = pca_init(adj, d=2, scale=1e-4, random_state=42)
-print('[J1] running pysgtsnepi auto-lambda=20 seed=42 PCA-init...')
-t0 = time.perf_counter()
-Y = sgtsnepi(adj, d=2, lambda_=20.0, random_state=42, Y0=Y0)
-rt = time.perf_counter() - t0
-print(f'[J1] DONE in {rt:.1f}s ({rt/60:.1f} min)')
-np.save('output/embeddings_baselines/ogbn_products_pysgtsnepi_seed42.npy', np.asarray(Y, np.float64))
-pd.DataFrame([{'dataset':'ogbn_products','n':n,'m':adj.nnz//2,'method':'pysgtsnepi','seed':42,'lambda_':20.0,'runtime_s':rt}]).to_parquet('output/tables/ogbn_products_scale.parquet', index=False)
-print('[J1] wrote ogbn_products_scale.parquet')
-" >> "$QUEUE_LOG" 2>&1; then
-    mark "j1_status" "completed"
-    banner "Tier J1: COMPLETE"
-else
-    mark "j1_status" "failed"
-    banner "Tier J1: FAILED (continuing)"
-fi
+# === Tier J1: ogbn-products scale demo (n=2.4M) ===
+run_tier j1 2h \
+    uv run python scripts/run_r4j1_ogbn_products.py
 
-# Tier I2: Wilcoxon (post-hoc on N=10 results)
-banner "Tier I2: Wilcoxon paired-rank at N=10"
-mark "i2_status" "running"
-if uv run python -c "
-import json
-from pathlib import Path
-import numpy as np
-import pandas as pd
-from scipy.stats import wilcoxon
-out = []
-contested = {'pbmc': 'umap', 'citeseer': 'phate', 'mnist_knn': 'umap'}
-for ds, vs_method in contested.items():
-    seeds = list(range(42, 52))
-    p_ours = [Path(f'output/tables/cells_baselines/{ds}_pysgtsnepi_seed{s}.parquet') for s in seeds]
-    p_other = [Path(f'output/tables/cells_baselines/{ds}_{vs_method}_seed{s}.parquet') for s in seeds]
-    paired_lts = []
-    for po, pt in zip(p_ours, p_other):
-        if po.exists() and pt.exists():
-            lo = float(pd.read_parquet(po)['label_trustworthiness'].iloc[0])
-            lt = float(pd.read_parquet(pt)['label_trustworthiness'].iloc[0])
-            if not (np.isnan(lo) or np.isnan(lt)):
-                paired_lts.append((lo, lt))
-    if len(paired_lts) >= 5:
-        ours_lt = np.array([p[0] for p in paired_lts])
-        other_lt = np.array([p[1] for p in paired_lts])
-        diff = ours_lt - other_lt
-        try:
-            stat, pvalue = wilcoxon(ours_lt, other_lt)
-        except Exception as e:
-            stat, pvalue = float('nan'), float('nan')
-        out.append({'dataset': ds, 'method_a': 'pysgtsnepi', 'method_b': vs_method,
-                    'n_pairs': len(paired_lts), 'mean_diff': float(diff.mean()),
-                    'wilcoxon_p': float(pvalue), 'wilcoxon_stat': float(stat)})
-        print(f'[I2] {ds}: ours vs {vs_method} N={len(paired_lts)} mean_diff={diff.mean():.4f} p={pvalue:.4f}')
-df = pd.DataFrame(out)
-df.to_parquet('output/tables/wilcoxon.parquet', index=False)
-print(f'[I2] wrote wilcoxon.parquet ({len(df)} rows)')
-" >> "$QUEUE_LOG" 2>&1; then
-    mark "i2_status" "completed"
-    banner "Tier I2: COMPLETE"
-else
-    mark "i2_status" "failed"
-    banner "Tier I2: FAILED"
-fi
+# === Tier I2: Wilcoxon (post-hoc on N=10 results) ===
+run_tier i2 10m \
+    uv run python scripts/run_r4i2_wilcoxon.py
 
-# Tier H3: cores scaling LAST so timing isn't polluted
-banner "Tier H3: pysgtsnepi cores scaling on Cora + ca_astroph"
-mark "h3_status" "running"
-if uv run python scripts/render_r4h_figures.py \
-    --figures h3 \
-    --max-workers 1,2,4,8,16,32 \
-    >> "$QUEUE_LOG" 2>&1; then
-    mark "h3_status" "completed"
-    banner "Tier H3: COMPLETE"
-else
-    mark "h3_status" "failed"
-    banner "Tier H3: FAILED"
-fi
+# === Tier H3: cores scaling LAST so timing isn't polluted ===
+run_tier h3 1.5h \
+    uv run python scripts/render_r4h_figures.py \
+    --figures h3 --max-workers 1,2,4,8,16,32
 
-# Re-aggregate comparison tables and emit paper table
-banner "Final: re-merge cells, re-aggregate, re-emit paper table"
-uv run python scripts/merge_e3_results.py >> "$QUEUE_LOG" 2>&1 || true
-uv run python scripts/emit_paper_table.py >> "$QUEUE_LOG" 2>&1 || true
-uv run python scripts/render_r4h_figures.py --figures h1 h2 >> "$QUEUE_LOG" 2>&1 || true
+# === Final: re-merge, re-emit, re-render ===
+banner "Final: re-merge, emit table, render H1/H2"
+set +e
+timeout 10m uv run python scripts/merge_e3_results.py >> "$QUEUE_LOG" 2>&1
+timeout 5m  uv run python scripts/emit_paper_table.py  >> "$QUEUE_LOG" 2>&1
+timeout 10m uv run python scripts/render_r4h_figures.py --figures h1 h2 >> "$QUEUE_LOG" 2>&1
+set -e
 
 mark "queue_status" "completed"
 mark "ended" "$(date_utc)"
 banner "OVERNIGHT QUEUE COMPLETE"
 echo "Final state:" | tee -a "$QUEUE_LOG"
 cat "$STATE_JSON" | tee -a "$QUEUE_LOG"
+
+# === Post-queue summary written to a separate file for easy parsing ===
+SUMMARY="$LOG_DIR/r4_overnight_summary.txt"
+{
+    echo "R4 overnight queue summary  $(date_utc)"
+    echo "==========================================="
+    echo "State JSON:"
+    cat "$STATE_JSON"
+    echo
+    echo "Cells in cells_baselines:"
+    ls output/tables/cells_baselines/ 2>/dev/null | wc -l
+    echo
+    echo "Per (dataset, method) cell counts:"
+    for ds in pbmc citeseer mnist_knn cora pubmed ca_astroph ogbn_arxiv; do
+        for m in pysgtsnepi umap opentsne phate node2vec_umap; do
+            c=$(find output/tables/cells_baselines -maxdepth 2 -name "${ds}_${m}_seed*.parquet" 2>/dev/null | wc -l)
+            printf "  %-12s/%-15s: %d\n" "$ds" "$m" "$c"
+        done
+    done
+    echo
+    echo "Last 30 log lines:"
+    tail -30 "$QUEUE_LOG"
+} > "$SUMMARY"
+
+banner "Summary written to $SUMMARY"
