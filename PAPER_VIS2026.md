@@ -1357,3 +1357,36 @@ median-Label-T seed per cell, LT corner badge.
 
 **Phase 5 (I1+I2 N=10 + Wilcoxon, J1 ogbn-products)**: paused awaiting
 greenlight; the corrected R5 numbers may shift Phase 5 priorities.
+
+
+---
+
+### Phase 5 launched (overnight queue, appended 2026-04-28T00:53Z, agent EXP-AGENT)
+
+R4 finishing tier queued in zjl tmux session r4_overnight via
+scripts/run_overnight_queue.sh. Sequencing (each tier wrapped in
+try/continue so one failure does not block the rest):
+
+1. **I1** N=5→N=10 extension on contested datasets {pbmc, citeseer,
+   mnist_knn} × cheap methods {umap, opentsne, phate, pysgtsnepi}.
+   59 cells on 4 workers; ~1.5h. Excludes node2vec_umap (compute-prohibitive
+   at 5 extra seeds; existing single-seed stays).
+2. **D4-finish** node2vec multi-seed pbmc + pubmed seeds 42-46 (current
+   state: each has only seed=42 cell). ~3h on workers=2 with
+   Node2Vec(workers=8) inside.
+3. **G2/G3/G4/G6** sensitivity sweeps on Cora + PubMed (G5 unsupported
+   per earlier finding; G6 fixed to use alpha kwarg). ~1h.
+4. **J1** ogbn-products scale demo (n=2.4M, single seed). ~30 min stretch.
+5. **I2** Wilcoxon paired-rank at full N=10 (post-hoc, ~5 min).
+6. **H3** cores scaling LAST (so timing is not polluted by concurrent
+   load). ~30 min.
+7. Final re-merge + emit_paper_table + render H1/H2.
+
+State file: output/meta/r4_overnight_state.json with per-tier
+status. Log: output/meta/r4_overnight_queue.log. Estimated total wall
+~6h. The agent will check back after the queue closes; cells are
+resume-safe via per-cell parquets so a mid-queue tmux death is recoverable.
+
+Smoke-tested before launch: G2 perplexity, G3 max_iter, G4 k-kNN, G6
+alpha kwarg all produce sane label_T values on Cora at seed=42; one I1
+cell (pbmc/umap/seed=47) ran clean on zjl in 28.6s with LT&C=(0.977,0.991).
