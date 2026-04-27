@@ -1,0 +1,18 @@
+{
+  "round3_status": "deferred — exceeds local M3 Pro round-3 wall-time budget",
+  "loader_ready": true,
+  "loader_function": "lens.data.load_ogbn_arxiv",
+  "package_installed": "ogb==1.3.6",
+  "dataset_metadata": {
+    "n": 169343,
+    "n_edges_undirected": 1166243,
+    "feature_dim": 128,
+    "n_classes": 40,
+    "type": "citation graph"
+  },
+  "downloaded_to": "data/processed/ogbn_arxiv/arxiv.zip (download in progress at round-3 cutoff)",
+  "rationale": "E3 multi-seed Pass B on 5 main datasets is consuming ~60-90 min wall on 4 workers. Adding OGBN-arxiv (n=170K, ~5x larger than our biggest current dataset MNIST-kNN n=70K) would add: (a) E1 grid 7 cells × estimated 5-10 min/cell = 35-70 min single-seed, (b) E2 quick, (c) E3 multi-seed N=5 × 4 methods × ~5-30 min/cell with PHATE subsampled to 10K and node2vec_umap skipped = additional 40-90 min. Total OGBN budget would exceed round-3 deadline.",
+  "escape_valve_invoked": "Per round-3 P1-6b escape valve: 'If OGBN-arxiv exhausts memory or runtime budget on M3 Pro, subsample to 50K nodes or skip and acknowledge OGBN-arxiv exceeds our local hardware budget'.",
+  "follow_up_for_paper_side": "If reviewers push for OGBN-arxiv evidence, a Day-4 single-seed run is feasible (~60 min wall). The loader is ready; just call: `python scripts/run_e3_baselines.py --datasets ogbn_arxiv --seeds 42`. PHATE will subsample to 10K; node2vec_umap will skip per `NODE2VEC_SKIP` set. Predicted lambda from [Pb] degree-moment fit is approximately 14-15.",
+  "caption_acknowledgment": "OGBN-arxiv (Hu et al. 2020) was excluded from the comparison due to local hardware budget; loader is shipped in `lens.data.load_ogbn_arxiv` for a follow-up evaluation."
+}

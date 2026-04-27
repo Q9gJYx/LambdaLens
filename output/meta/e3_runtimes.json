@@ -1,0 +1,22 @@
+{
+  "pbmc/pysgtsnepi": 5.0,
+  "pbmc/phate": 5.0,
+  "pbmc/node2vec_umap": 453.8,
+  "cora/pysgtsnepi": 5.0,
+  "cora/umap": 10.0,
+  "cora/opentsne": 18.0,
+  "cora/node2vec_umap": 130.9,
+  "cora/phate": 10.0,
+  "citeseer/pysgtsnepi": 12.3,
+  "citeseer/umap": 15.8,
+  "citeseer/opentsne": 15.7,
+  "citeseer/node2vec_umap": 162.6,
+  "citeseer/phate": 5.8,
+  "ca_astroph/pysgtsnepi": 8.3,
+  "ca_astroph/node2vec_umap": 1106.5,
+  "ca_astroph/phate": 10.5,
+  "mnist_knn/pysgtsnepi": 85.8,
+  "mnist_knn/umap": 39.4,
+  "mnist_knn/opentsne": 99.4,
+  "mnist_knn/phate": 7.3
+}

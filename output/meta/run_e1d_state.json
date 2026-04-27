@@ -1,0 +1,1 @@
+{"completed": 23, "total": 23, "elapsed_s": 60.48102537498926, "eta_s": 0.0, "last": {"dataset": "pbmc", "lambda_": 80.0, "seed": 42, "init": "pca"}}

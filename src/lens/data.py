@@ -217,6 +217,66 @@ def load_snap_edgelist(
     return adj, features, None
 
 
+def load_pbmc(
+    cache_dir: str | Path = "data/processed",
+) -> tuple[sp.csr_matrix, np.ndarray | None, np.ndarray | None]:
+    """Load the PBMC-8k stochastic kNN graph from fcdimitr/sgtsnepi.
+
+    This is the original SG-t-SNE-Pi paper's primary biological-data demo
+    (Pitsianis et al. 2019 HPEC). The graph is already a stochastic kNN
+    matrix (k=30), so it must be passed to sgtsnepi with
+    `unweighted_to_weighted=False` to skip Jaccard preprocessing.
+
+    Labels (cell-type via SD-DP) are not in the GitHub data tarball.
+    """
+    import scipy.io
+    cache = Path(cache_dir) / "pbmc"
+    cache.mkdir(parents=True, exist_ok=True)
+    tar_path = cache / "pbmc-graph.tar.gz"
+    mtx_path = cache / "pbmc-graph.mtx"
+    if not mtx_path.exists():
+        if not tar_path.exists():
+            _atomic_download(
+                "https://github.com/fcdimitr/sgtsnepi/raw/master/data/pbmc-graph.tar.gz",
+                tar_path,
+            )
+        import tarfile
+        with tarfile.open(tar_path, "r:gz") as tf:
+            tf.extractall(cache)
+    adj = scipy.io.mmread(str(mtx_path)).tocsr().astype(np.float32)
+    labels_path = cache / "labels.npy"
+    labels = np.load(labels_path) if labels_path.exists() else None
+    return adj, None, labels
+
+
+def load_ogbn_arxiv(
+    cache_dir: str | Path = "data/processed",
+) -> tuple[sp.csr_matrix, np.ndarray, np.ndarray]:
+    """Load OGBN-arxiv (n=169,343, 1.16M edges, 128-d features, 40 classes).
+
+    Uses ogb.nodeproppred.NodePropPredDataset (CSR sparse adj construction).
+    """
+    from ogb.nodeproppred import NodePropPredDataset
+
+    cache = Path(cache_dir) / "ogbn_arxiv"
+    cache.mkdir(parents=True, exist_ok=True)
+    ds = NodePropPredDataset(name="ogbn-arxiv", root=str(cache))
+    graph, labels = ds[0]
+    n = int(graph["num_nodes"])
+    edge_index = graph["edge_index"]
+    rows = edge_index[0].astype(np.int64)
+    cols = edge_index[1].astype(np.int64)
+    adj = sp.csr_matrix(
+        (np.ones(rows.size, np.float32), (rows, cols)), shape=(n, n)
+    )
+    adj = ((adj + adj.T) > 0).astype(np.float32)
+    adj.setdiag(0)
+    adj.eliminate_zeros()
+    features = np.asarray(graph["node_feat"], dtype=np.float32)
+    labels = np.asarray(labels, dtype=int).ravel()
+    return adj, features, labels
+
+
 def load_dataset(
     name: str, cache_dir: str | Path = "data/processed"
 ) -> tuple[sp.csr_matrix, np.ndarray | None, np.ndarray | None]:
@@ -227,4 +287,8 @@ def load_dataset(
         return load_mnist_knn(15, cache_dir)
     if name in ("ca_astroph", "wiki_vote"):
         return load_snap_edgelist(name, cache_dir)
+    if name == "pbmc":
+        return load_pbmc(cache_dir)
+    if name == "ogbn_arxiv":
+        return load_ogbn_arxiv(cache_dir)
     raise ValueError(f"unknown dataset: {name}")

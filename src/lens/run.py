@@ -1,9 +1,12 @@
-"""Single-cell runner: one (dataset, lambda, seed) tuple end-to-end.
+"""Single-cell runner: one (dataset, lambda, seed, init, uw) tuple end-to-end.
 
 Persists outputs in a race-free manner:
 - embeddings via atomic tmp+rename (`_atomic_save_npy` from data.py)
 - per-cell parquet rows under tables/cells/ (no read-modify-write race)
 - a separate merge step (in run_e1_local.py) rolls cells into per-dataset parquets
+
+Filenames suffix only when the kwarg differs from default, so existing E1
+artifacts keep their schema and resumability is preserved.
 
 Skipped-metric cells (ZADU off; e.g. unlabeled large SNAP graphs) emit explicit
 NaN sentinels so all cells share schema.
@@ -12,7 +15,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -21,6 +24,7 @@ from pysgtsnepi import sgtsnepi
 from zadu import ZADU
 
 from lens.data import _atomic_save_npy
+from lens.init import pca_init
 
 METRIC_COLUMNS = (
     "trustworthiness",
@@ -46,6 +50,15 @@ def _zadu_subsample(
     return features[idx], embedding[idx], sub_labels
 
 
+def _suffix(init: str, unweighted_to_weighted: bool) -> str:
+    parts = []
+    if init != "random":
+        parts.append(f"init={init}")
+    if not unweighted_to_weighted:
+        parts.append("uw=False")
+    return ("_" + "_".join(parts)) if parts else ""
+
+
 def run_one_cell(
     adj: sp.csr_matrix,
     features: np.ndarray | None,
@@ -55,13 +68,25 @@ def run_one_cell(
     dataset: str,
     out_root: str | Path = "output",
     zadu_subsample_n: int = 5000,
+    init: Literal["random", "pca"] = "random",
+    Y0_scale: float = 1e-4,
+    unweighted_to_weighted: bool = True,
 ) -> dict[str, Any]:
     out_root = Path(out_root)
     (out_root / "tables" / "cells").mkdir(parents=True, exist_ok=True)
     (out_root / "embeddings").mkdir(parents=True, exist_ok=True)
 
+    Y0 = pca_init(adj, d=2, scale=Y0_scale, random_state=seed) if init == "pca" else None
+
     t0 = time.perf_counter()
-    Y = sgtsnepi(adj, d=2, lambda_=lambda_, random_state=seed)
+    Y = sgtsnepi(
+        adj,
+        d=2,
+        lambda_=lambda_,
+        random_state=seed,
+        Y0=Y0,
+        unweighted_to_weighted=unweighted_to_weighted,
+    )
     runtime_s = time.perf_counter() - t0
 
     metrics: dict[str, float] = {c: float("nan") for c in METRIC_COLUMNS}
@@ -85,7 +110,8 @@ def run_one_cell(
                 if k in METRIC_COLUMNS:
                     metrics[k] = float(v)
 
-    emb_path = out_root / "embeddings" / f"{dataset}_lam{lambda_}_seed{seed}.npy"
+    suf = _suffix(init, unweighted_to_weighted)
+    emb_path = out_root / "embeddings" / f"{dataset}_lam{lambda_}_seed{seed}{suf}.npy"
     if emb_path.exists():
         emb_path.unlink()
     _atomic_save_npy(Y, emb_path)
@@ -94,11 +120,13 @@ def run_one_cell(
         "dataset": dataset,
         "lambda_": float(lambda_),
         "seed": int(seed),
+        "init": init,
+        "unweighted_to_weighted": bool(unweighted_to_weighted),
         "runtime_s": runtime_s,
         **metrics,
     }
     cell_path = (
-        out_root / "tables" / "cells" / f"{dataset}_lam{lambda_}_seed{seed}.parquet"
+        out_root / "tables" / "cells" / f"{dataset}_lam{lambda_}_seed{seed}{suf}.parquet"
     )
     pd.DataFrame([row]).to_parquet(cell_path, index=False)
 
