@@ -25,11 +25,15 @@ DEFAULT_LAMBDAS = (0.5, 1.0, 2.0, 5.0, 10.0, 20.0)
 DEFAULT_SEEDS = (42, 43, 44)
 
 
-def _cell_parquet_path(out_root: Path, dataset: str, lam: float, seed: int) -> Path:
-    return out_root / "tables" / "cells" / f"{dataset}_lam{lam}_seed{seed}.parquet"
+def _existing_cells(
+    out_root: Path, dataset: str, init: str, uw: bool
+) -> set[tuple[float, int]]:
+    """Return (lambda, seed) pairs already run for this (dataset, init, uw) combo.
 
-
-def _existing_cells(out_root: Path, dataset: str) -> set[tuple[float, int]]:
+    Cells are stored by run_one_cell with init / unweighted_to_weighted in the
+    suffix; this resume key reads the parquet rows and matches all four fields
+    so different (init, uw) variants for the same (lambda, seed) coexist.
+    """
     cells_dir = out_root / "tables" / "cells"
     if not cells_dir.exists():
         return set()
@@ -38,7 +42,10 @@ def _existing_cells(out_root: Path, dataset: str) -> set[tuple[float, int]]:
         try:
             df = pd.read_parquet(p)
             for r in df.itertuples():
-                found.add((float(r.lambda_), int(r.seed)))
+                row_init = getattr(r, "init", "random")
+                row_uw = bool(getattr(r, "unweighted_to_weighted", True))
+                if row_init == init and row_uw == uw:
+                    found.add((float(r.lambda_), int(r.seed)))
         except Exception:
             continue
     return found
@@ -63,14 +70,29 @@ def _merge_per_dataset(out_root: Path, datasets: list[str]) -> None:
 
 
 def _worker(
-    dataset: str, lambda_: float, seed: int, out_root: str, zadu_subsample_n: int
+    dataset: str,
+    lambda_: float,
+    seed: int,
+    out_root: str,
+    zadu_subsample_n: int,
+    init: str,
+    uw: bool,
 ) -> dict:
     from lens.data import load_dataset
     from lens.run import run_one_cell
 
     adj, features, labels = load_dataset(dataset)
     return run_one_cell(
-        adj, features, labels, lambda_, seed, dataset, out_root, zadu_subsample_n
+        adj,
+        features,
+        labels,
+        lambda_,
+        seed,
+        dataset,
+        out_root,
+        zadu_subsample_n,
+        init=init,
+        unweighted_to_weighted=uw,
     )
 
 
@@ -82,6 +104,13 @@ def main() -> int:
     p.add_argument("--max-workers", type=int, default=2)
     p.add_argument("--out-root", default="output")
     p.add_argument("--zadu-subsample-n", type=int, default=5000)
+    p.add_argument("--init", choices=["random", "pca"], default="random")
+    p.add_argument(
+        "--unweighted-to-weighted",
+        choices=["true", "false"],
+        default="true",
+        help="Pass to pysgtsnepi. PBMC (already stochastic) needs 'false'.",
+    )
     p.add_argument(
         "--state-json",
         default="output/meta/run_e1_state.json",
@@ -98,9 +127,10 @@ def main() -> int:
     state_path = Path(args.state_json)
     state_path.parent.mkdir(parents=True, exist_ok=True)
 
+    uw = args.unweighted_to_weighted == "true"
     cells: list[tuple[str, float, int]] = []
     for ds in args.datasets:
-        done = _existing_cells(out_root, ds)
+        done = _existing_cells(out_root, ds, args.init, uw)
         for lam in args.lambdas:
             for seed in args.seeds:
                 if (lam, seed) in done:
@@ -129,7 +159,14 @@ def main() -> int:
     with ProcessPoolExecutor(max_workers=args.max_workers) as ex:
         futs = {
             ex.submit(
-                _worker, ds, lam, seed, args.out_root, args.zadu_subsample_n
+                _worker,
+                ds,
+                lam,
+                seed,
+                args.out_root,
+                args.zadu_subsample_n,
+                args.init,
+                uw,
             ): (ds, lam, seed)
             for ds, lam, seed in cells
         }

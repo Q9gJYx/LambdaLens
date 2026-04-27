@@ -4,7 +4,20 @@
   "deadline_aoe": "2026-04-30T23:59-12:00",
   "branch": "paper-vis2026",
   "compute": {
-    "primary": "azure",
+    "primary": "zjl",
+    "zjl": {
+      "host": "shimarin",
+      "ssh_alias": "zjl",
+      "remote_path": "~/WorkSpace/wh/SGtSNE-Pi",
+      "max_workers": 32,
+      "cpu_cores_physical": 32,
+      "cpu_cores_logical": 64,
+      "ram_gib": 377,
+      "disk_free_gib_home": 354,
+      "scheduler": "process-pool",
+      "policy_note": "Shared host (vul337.team); not billed. OMP_NUM_THREADS=1 per process; node2vec workers=8 inside ProcessPool with max_workers=5 (=40 threads on 64-core box). zjl reachable 2026-04-27 after 2026-04-26 SSH banner-timeout pattern resolved."
+    },
+    "azure": {
     "azure": {
       "host": "lens-vm",
       "subscription_id": "1f95b428-f520-42af-ac34-a91e2e0df028",
@@ -94,6 +107,7 @@
     {"ts": "2026-04-27T05:30:00Z", "actor": "experiment-agent", "event": "Round-3 Pass A complete: P0-2 PBMC labels via HDBSCAN(mcs=20) → 7 clusters, 0.36% noise (Zheng-2017 unobtainable for n=8381 fcdimitr split); P0-3a pysgtsnepi multi-seed N=5 × 5 datasets in 173s; P0-4 graph-only T/C extension in src/lens/metrics.py (adj rows as features, subsample 5000 idx-aligned); P0-1a teaser_pbmc_hero.pdf and P0-1b lens_idiom_regimes.pdf rendered with single-seed insets (Cora label_T&C peaks at lambda=20=auto, MNIST stays ceiling). Six new scripts shipped (derive_pbmc_labels, render_p0_figures, run_p1_7_synth, compute_placeholders, cv_d_summary, run_p0_3a_pysgtsnepi)."},
     {"ts": "2026-04-27T05:50:00Z", "actor": "experiment-agent", "event": "Round-3 quick wins: [Pa] PBMC 4-fit auto-lambda runtime = 38.76s; [Pb] degree-moment OLS fit (c0=20.6, c1=-4.11, R^2=0.17 — weak because mnist_knn CV=0.30 with same lambda=20 as cora CV=1.34); [Pc] predicted PBMC lambda = 17.5; [Pd] predicted ca_astroph lambda = 14.6. P1-6 DRGraph cite-only JSON written (block_2000, Flan_1565 from Zhu 2021 Tables 2-3; no compile attempted per round-3 spec). P1-7 synthetic regime control: BA(CV=1.33) vs WS(CV=0.10), pairwise lambda-Procrustes ~0.27 for both — figure visually clearer than scalar. CV(d) summary written for all 6 datasets."},
     {"ts": "2026-04-27T06:00:00Z", "actor": "experiment-agent", "event": "Round-3 Pass B launched: rewrite of run_e3_baselines.py for multi-seed N=5 with PCA-init Y0 cache (T2), n_epochs=1000/n_iter=1000 budgets (T3), graph-only routing (T5: UMAP metric=precomputed on 1-sym(adj), openTSNE PrecomputedAffinities, PHATE knn_dist=precomputed_affinity — fixes silent Phase-6 misuse where stochastic adj was treated as feature matrix), PHATE subsample 10K extended to ca_astroph/OGBN (T6), node2vec workers=1 in ProcessPool subprocess. 109 cells running on 4 workers. Concurrently: P1-5 PubMed E1 grid 7 cells in 93s; auto-lambda=5 matches gridsearch=5; auto_lambda_summary updated; match rate now 3/4 labeled. OGBN-arxiv loader added; ogb 1.3.6 + torch installed."},
-    {"ts": "2026-04-27T08:00:00Z", "actor": "experiment-agent", "event": "Round-3 Pass B/C complete. Killed main E3 at 93/109 (ca_astroph node2vec_umap single-seed at workers=1 was the >70min long pole; resurrected from Phase-6 carryover instead via _resurrect_phase6_node2vec.py). Killed pubmed E3 at 15/21 stuck on node2vec_umap workers=1; re-ran pubmed phate ×5 in 42s (workers=5) and pubmed node2vec_umap single-seed in 1067s (workers=4 oneoff via _run_pubmed_node2vec_fast.py). opentsne dtype-mismatch retry succeeded for pbmc+ca_astroph graph-only (10 cells in 17min on workers=2). Final merge: 6 datasets, <ds>_comparison_agg.parquet with mean±std+best-of-3. HEADLINE: pysgtsnepi(auto-λ) WINS Cora (0.924 vs 0.915 node2vec, 41x faster) AND PubMed (0.903 vs 0.895 PHATE, 2.6x faster); ties ceiling on MNIST-kNN; close 2nd on PBMC (label_T 0.968 vs UMAP 0.974 but T 0.704 vs UMAP 0.681 — pysgtsnepi preserves graph structure better); best on ca_astroph T (0.624) at 30s vs node2vec 4083s (138x); loses Citeseer where PHATE wins (0.854 vs pysgtsnepi auto-λ=5 0.739). Round-3 complete."}
+    {"ts": "2026-04-27T08:00:00Z", "actor": "experiment-agent", "event": "Round-3 Pass B/C complete. Killed main E3 at 93/109 (ca_astroph node2vec_umap single-seed at workers=1 was the >70min long pole; resurrected from Phase-6 carryover instead via _resurrect_phase6_node2vec.py). Killed pubmed E3 at 15/21 stuck on node2vec_umap workers=1; re-ran pubmed phate ×5 in 42s (workers=5) and pubmed node2vec_umap single-seed in 1067s (workers=4 oneoff via _run_pubmed_node2vec_fast.py). opentsne dtype-mismatch retry succeeded for pbmc+ca_astroph graph-only (10 cells in 17min on workers=2). Final merge: 6 datasets, <ds>_comparison_agg.parquet with mean±std+best-of-3. HEADLINE: pysgtsnepi(auto-λ) WINS Cora (0.924 vs 0.915 node2vec, 41x faster) AND PubMed (0.903 vs 0.895 PHATE, 2.6x faster); ties ceiling on MNIST-kNN; close 2nd on PBMC (label_T 0.968 vs UMAP 0.974 but T 0.704 vs UMAP 0.681 — pysgtsnepi preserves graph structure better); best on ca_astroph T (0.624) at 30s vs node2vec 4083s (138x); loses Citeseer where PHATE wins (0.854 vs pysgtsnepi auto-λ=5 0.739). Round-3 complete."},
+    {"ts": "2026-04-27T09:50:00Z", "actor": "experiment-agent", "event": "Phase 7 (R4) bootstrap: zjl reachable (shimarin, 64 cores / 377 GiB / 354 GiB free). Repo housekeeping commit eecfbea + R3 deliverables a82e0a9 + R3 status updates b320c8d pushed to origin/paper-vis2026. zjl cloned the repo to ~/WorkSpace/wh/SGtSNE-Pi; uv 0.11.7 installed at ~/.local/bin/; uv sync --extra baselines launched. Locked R4 decisions: 2 commits for R3 split; git over public origin; D6 DRGraph 90 min time-box with 30-min go/no-go; I1+I2 both run on shared seed compute, paper-side picks reporting headline."}
   ]
 }

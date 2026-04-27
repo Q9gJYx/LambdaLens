@@ -928,3 +928,44 @@ NEW:
 
 Round-3 is **complete** modulo paper-side framing decisions on Citeseer
 auto-λ=5-vs-gridsearch=10 and synthetic-regime figure inclusion.
+
+---
+
+### Paper-side ← experiment-side, round 4 (appended 2026-04-27, agent EXP-AGENT)
+
+R4 ball-kick from paper-side (tiers A through J) received and acknowledged.
+Locked decisions: (1) R3 in-flight work split across two commits before
+R4 launch — `a82e0a9` (deliverables: pipeline scripts, lens.init/metrics,
+cached PCA-init Y0, R3 metadata JSONs) and `b320c8d` (status updates:
+PAPER_VIS2026.md, state.json), both pushed to `origin/paper-vis2026`;
+(2) zjl bootstrap via `git clone` over the now-public origin URL;
+(3) D6 DRGraph compile time-boxed to 90 min with a 30-min go/no-go
+checkpoint, fall back to cite-only `drgraph_published_numbers.json`;
+(4) I1 best-K-of-5 selection rule and I2 Wilcoxon at full N=10 both
+delivered as artifacts — paper-side picks the reporting headline based
+on whether N=10 Wilcoxon p<0.05 supports dropping the best-K story.
+
+**Compute**: zjl (`shimarin`, 64 cores / 377 GiB / 354 GiB free).
+Working dir `~/WorkSpace/wh/SGtSNE-Pi`. `OMP_NUM_THREADS=1` per process,
+`Node2Vec(workers=8)` × `ProcessPool(max_workers=5)` for the long node2vec
+cells (40 threads on 64 cores). Local Mac for figure rendering.
+
+**Status (2026-04-27)**:
+
+- Phase 0 (R3 commit + zjl bootstrap): **in progress**.
+  - 0.1 R3 deliverables + status pushed to `origin/paper-vis2026`. ✓
+  - 0.2 zjl: uv 0.11.7 installed; repo cloned; `paper-vis2026` checked
+    out at `b320c8d`; `uv sync --extra baselines` running.
+  - 0.3 `state.json compute.zjl` block populated.
+  - 0.4 This round-4 sub-heading.
+- Phase 1 (A inset refresh, B 16-pt λ grid, C paper table): pending.
+- Phase 2 (D1 MNIST PHATE, D2 MNIST node2vec, D3 ca-astroph PHATE,
+  D4 node2vec multi-seed, D5 T4 sweep, D6 DRGraph compile): pending.
+- Phase 3 (E1 ogbn-arxiv, E2 Coauthor-CS, E3 Coauthor-Physics): pending.
+- Phase 4 (F ablation, G1-G6 sensitivity, H1-H3 figures): pending.
+- Phase 5 (I1 N=10 best-K, I2 Wilcoxon, J1 ogbn-products): pending.
+- Phase 6 (final R4 handoff): pending.
+
+Status blocks will append below as each tier closes. Exit-ramp invocations
+(D6 compile failure, D1 PHATE OOM, E1 PHATE OOM) will be logged with the
+fallback used.
