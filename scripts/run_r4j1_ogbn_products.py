@@ -15,9 +15,22 @@ import scipy.sparse as sp
 
 def main() -> int:
     print("[J1] loading ogbn-products...", flush=True)
-    from ogb.nodeproppred import NodePropPredDataset
-    ds = NodePropPredDataset(name="ogbn-products",
-                             root="data/processed/ogbn_products")
+    # OGB loader prompts on stdin for download confirmation when the dataset
+    # is missing. In tmux/non-interactive contexts this would hang forever
+    # (or be killed by the queue's timeout, producing no result). Patch
+    # builtins.input to auto-confirm before importing/calling OGB.
+    import builtins
+    _orig_input = builtins.input
+    def _auto_yes(prompt=""):
+        print(prompt + " [auto: y]", flush=True)
+        return "y"
+    builtins.input = _auto_yes
+    try:
+        from ogb.nodeproppred import NodePropPredDataset
+        ds = NodePropPredDataset(name="ogbn-products",
+                                 root="data/processed/ogbn_products")
+    finally:
+        builtins.input = _orig_input
     graph, labels = ds[0]
     n = int(graph["num_nodes"])
     edge_index = graph["edge_index"]

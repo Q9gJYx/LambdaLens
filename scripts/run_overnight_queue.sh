@@ -48,23 +48,25 @@ PYEOF
 }
 
 # Run a tier with a hard timeout. $1 = state-key, $2 = wall-cap, $3..$N = cmd.
+# Note: this script intentionally does NOT use `set -e`; failures of any
+# tier should be marked and the queue must continue. `mark` calls are
+# defensive (`|| true`) so a transient JSON-write failure can't kill the
+# whole queue.
 run_tier() {
     local key="$1"; shift
     local cap="$1"; shift
-    mark "$key" "running"
+    mark "$key" "running" || true
     banner "Tier $key (cap=$cap): $*"
-    set +e
     timeout --kill-after=30s "$cap" "$@" >> "$QUEUE_LOG" 2>&1
     local rc=$?
-    set -e
     if [ "$rc" -eq 0 ]; then
-        mark "$key" "completed"
+        mark "$key" "completed" || true
         banner "Tier $key: COMPLETE (rc=0)"
     elif [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-        mark "$key" "timeout"
+        mark "$key" "timeout" || true
         banner "Tier $key: TIMEOUT after $cap (rc=$rc); continuing"
     else
-        mark "$key" "failed"
+        mark "$key" "failed" || true
         banner "Tier $key: FAILED (rc=$rc); continuing"
     fi
     return 0
@@ -74,19 +76,19 @@ run_tier() {
 banner "Pre-flight"
 free_gb=$(df -BG "$PWD" | awk 'NR==2 {print $4}' | tr -d 'G')
 echo "  disk free: ${free_gb}G" | tee -a "$QUEUE_LOG"
-if [ "${free_gb:-0}" -lt 30 ]; then
-    banner "ABORT: <30G free disk; queue not safe to launch"
-    mark "queue_status" "aborted_disk"
+if ! [[ "${free_gb:-}" =~ ^[0-9]+$ ]] || [ "${free_gb:-0}" -lt 30 ]; then
+    banner "ABORT: <30G free disk (got '${free_gb:-?}'); queue not safe to launch"
+    mark "queue_status" "aborted_disk" || true
     exit 1
 fi
 uv run python -c "import lens.data, lens.init, lens.metrics, lens.run; print('  lens import ok')" >> "$QUEUE_LOG" 2>&1 || {
     banner "ABORT: lens package import failed"
-    mark "queue_status" "aborted_import"
+    mark "queue_status" "aborted_import" || true
     exit 1
 }
 echo "  python: $(uv run python --version 2>&1)" | tee -a "$QUEUE_LOG"
-mark "queue_status" "running"
-mark "started" "$(date_utc)"
+mark "queue_status" "running" || true
+mark "started" "$(date_utc)" || true
 
 # === Tier I1: N=5 -> N=10 extension on contested datasets, cheap methods ===
 run_tier i1 2.5h \
@@ -125,16 +127,14 @@ run_tier h3 1.5h \
     uv run python scripts/render_r4h_figures.py \
     --figures h3 --max-workers 1,2,4,8,16,32
 
-# === Final: re-merge, re-emit, re-render ===
+# === Final: re-merge, re-emit, re-render (set +e not needed; never on globally) ===
 banner "Final: re-merge, emit table, render H1/H2"
-set +e
-timeout 10m uv run python scripts/merge_e3_results.py >> "$QUEUE_LOG" 2>&1
-timeout 5m  uv run python scripts/emit_paper_table.py  >> "$QUEUE_LOG" 2>&1
-timeout 10m uv run python scripts/render_r4h_figures.py --figures h1 h2 >> "$QUEUE_LOG" 2>&1
-set -e
+timeout 10m uv run python scripts/merge_e3_results.py >> "$QUEUE_LOG" 2>&1 || banner "  merge_e3_results: rc=$?"
+timeout 5m  uv run python scripts/emit_paper_table.py  >> "$QUEUE_LOG" 2>&1 || banner "  emit_paper_table: rc=$?"
+timeout 10m uv run python scripts/render_r4h_figures.py --figures h1 h2 >> "$QUEUE_LOG" 2>&1 || banner "  render H1/H2: rc=$?"
 
-mark "queue_status" "completed"
-mark "ended" "$(date_utc)"
+mark "queue_status" "completed" || true
+mark "ended" "$(date_utc)" || true
 banner "OVERNIGHT QUEUE COMPLETE"
 echo "Final state:" | tee -a "$QUEUE_LOG"
 cat "$STATE_JSON" | tee -a "$QUEUE_LOG"
