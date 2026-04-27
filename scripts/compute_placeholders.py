@@ -45,12 +45,35 @@ def _time_pa() -> dict:
     }
 
 
-def _moment_fit(cv_summary: dict[str, dict]) -> dict:
-    pts = [
+def _moment_fit(cv_summary: dict[str, dict],
+                auto_lambda_path: Path | None = None) -> dict:
+    """OLS fit on labeled-dataset grid-best lambda values.
+
+    R4-B expands from 3 to 5 labeled datasets by adding PubMed and PBMC.
+    Grid-best lambda read from auto_lambda_summary.parquet when available
+    and expanded grid has been run; falls back to R3 hardcoded values.
+    """
+    # Base 3-point inputs (R3, always available)
+    base_pts = [
         ("cora", cv_summary["cora"]["cv_d"], 20.0),
         ("citeseer", cv_summary["citeseer"]["cv_d"], 10.0),
         ("mnist_knn", cv_summary["mnist_knn"]["cv_d"], 20.0),
     ]
+    extra_pts: list[tuple[str, float, float]] = []
+    if auto_lambda_path is not None and auto_lambda_path.exists():
+        al_df = pd.read_parquet(auto_lambda_path) if str(auto_lambda_path).endswith(".parquet") else None
+        if al_df is not None:
+            for ds in ("pubmed", "pbmc"):
+                if ds not in cv_summary:
+                    continue
+                row = al_df[al_df["dataset"] == ds]
+                if row.empty:
+                    continue
+                v = row["auto_lambda"].iloc[0]
+                if v and not (isinstance(v, float) and np.isnan(v)):
+                    extra_pts.append((ds, cv_summary[ds]["cv_d"], float(v)))
+
+    pts = base_pts + extra_pts
     cv = np.array([p[1] for p in pts])
     lam = np.array([p[2] for p in pts])
     X = np.column_stack([np.ones_like(cv), cv])
@@ -61,25 +84,31 @@ def _moment_fit(cv_summary: dict[str, dict]) -> dict:
     ss_tot = float(((lam - lam.mean()) ** 2).sum())
     r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
 
-    def _predict(d: str) -> float:
+    def _predict(d: str) -> float | None:
+        if d not in cv_summary:
+            return None
         v = c0 + c1 * cv_summary[d]["cv_d"]
         return float(np.clip(v, 1.0, 80.0))
 
+    n_pts = len(pts)
     return {
         "c0": c0,
         "c1": c1,
         "r_squared": r2,
+        "n_fit_points": n_pts,
         "predicted_pbmc": _predict("pbmc"),
         "predicted_ca_astroph": _predict("ca_astroph"),
-        "predicted_pubmed": _predict("pubmed") if "pubmed" in cv_summary else None,
+        "predicted_pubmed": _predict("pubmed"),
         "inputs": {p[0]: {"cv_d": p[1], "lambda_grid_best": p[2]} for p in pts},
-        "method": "ordinary_least_squares_3pt",
-        "note": ("3-point fit on grid-best lambda for labeled datasets per round-3 spec; "
-                 "Citeseer uses gridsearch lambda=10, not auto-lambda=5."),
+        "method": f"ordinary_least_squares_{n_pts}pt",
+        "note": (f"{n_pts}-point fit; Citeseer uses gridsearch lambda=10 (not auto=5); "
+                 "PubMed+PBMC added if auto_lambda_summary available (R4-B)."),
     }
 
 
 def main() -> int:
+    import pandas as pd
+
     cv_path = Path("output/tables/cv_d_summary.json")
     if not cv_path.exists():
         raise SystemExit("[placeholders] need cv_d_summary.json — run scripts/cv_d_summary.py first")
@@ -93,12 +122,16 @@ def main() -> int:
     print(f"[Pa] PBMC 4-fit auto-lambda runtime = {pa['pbmc_4fit_pca_init_seed42_seconds']:.2f} s "
           f"(per-lambda: {pa['per_lambda_s']})", flush=True)
 
-    fit = _moment_fit(cv_summary)
+    al_path = Path("output/tables/auto_lambda_summary.parquet")
+    fit = _moment_fit(cv_summary, al_path if al_path.exists() else None)
     with open("output/tables/moment_fit.json", "w") as f:
         json.dump(fit, f, indent=2)
-    print(f"[Pb] lambda = {fit['c0']:.3f} + {fit['c1']:.3f} * CV(d), R^2 = {fit['r_squared']:.3f}", flush=True)
-    print(f"[Pc] predicted PBMC lambda = {fit['predicted_pbmc']:.2f}", flush=True)
-    print(f"[Pd] predicted ca_astroph lambda = {fit['predicted_ca_astroph']:.2f}", flush=True)
+    print(f"[Pb] lambda = {fit['c0']:.3f} + {fit['c1']:.3f} * CV(d), "
+          f"R^2 = {fit['r_squared']:.3f} ({fit['n_fit_points']}-pt fit)", flush=True)
+    if fit.get("predicted_pbmc") is not None:
+        print(f"[Pc] predicted PBMC lambda = {fit['predicted_pbmc']:.2f}", flush=True)
+    if fit.get("predicted_ca_astroph") is not None:
+        print(f"[Pd] predicted ca_astroph lambda = {fit['predicted_ca_astroph']:.2f}", flush=True)
     if fit.get("predicted_pubmed") is not None:
         print(f"[bonus] predicted PubMed lambda = {fit['predicted_pubmed']:.2f}", flush=True)
     return 0

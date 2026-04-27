@@ -34,7 +34,32 @@ def _emb_path(ds: str, lam: float, uw_false: bool) -> Path:
     return Path(f"output/embeddings/{ds}_lam{lam}_seed42_init=pca{suffix}.npy")
 
 
+INSET_MEANS_PATH = Path("output/tables/teaser_lens_inset_means.json")
+_inset_means_cache: dict | None = None
+
+
+def _load_inset_means() -> dict:
+    global _inset_means_cache
+    if _inset_means_cache is None:
+        if INSET_MEANS_PATH.exists():
+            with open(INSET_MEANS_PATH) as f:
+                _inset_means_cache = json.load(f)
+        else:
+            _inset_means_cache = {}
+    return _inset_means_cache
+
+
 def _label_tc_from_cell(ds: str, lam: float, uw_false: bool) -> tuple[float, float] | None:
+    # Prefer N=5 mean from aggregate_insets.py when available (R4-A pass)
+    means = _load_inset_means()
+    if ds in means and str(lam) in means[ds]:
+        v = means[ds][str(lam)]
+        if v and not (v.get("mean_label_T") is None):
+            lt = v["mean_label_T"]
+            lc = v["mean_label_C"]
+            if not (np.isnan(lt) or np.isnan(lc)):
+                return float(lt), float(lc)
+    # Fall back to single seed=42 cell
     suffix = "_uw=False" if uw_false else ""
     p = Path(f"output/tables/cells/{ds}_lam{lam}_seed42_init=pca{suffix}.parquet")
     if not p.exists():

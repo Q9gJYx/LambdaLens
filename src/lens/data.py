@@ -277,6 +277,37 @@ def load_ogbn_arxiv(
     return adj, features, labels
 
 
+def load_coauthor(
+    name: str,
+    cache_dir: str | Path = "data/processed",
+) -> tuple[sp.csr_matrix, np.ndarray, np.ndarray]:
+    """Load Coauthor-CS or Coauthor-Physics from PyG.
+
+    Coauthor-CS:      n=18,333, 15 classes, 6,805-d features (Shchur 2018)
+    Coauthor-Physics: n=34,493,  5 classes, 8,415-d features
+    """
+    from torch_geometric.datasets import Coauthor  # type: ignore
+
+    pyg_name = {"coauthor_cs": "CS", "coauthor_physics": "Physics"}[name]
+    cache = Path(cache_dir) / name
+    cache.mkdir(parents=True, exist_ok=True)
+    dataset = Coauthor(root=str(cache), name=pyg_name)
+    data = dataset[0]
+    edge_index = data.edge_index.numpy()
+    n = int(data.num_nodes)
+    adj = sp.csr_matrix(
+        (np.ones(edge_index.shape[1], np.float32),
+         (edge_index[0], edge_index[1])),
+        shape=(n, n),
+    )
+    adj = ((adj + adj.T) > 0).astype(np.float32)
+    adj.setdiag(0)
+    adj.eliminate_zeros()
+    features = data.x.numpy().astype(np.float32)
+    labels = data.y.numpy().astype(int)
+    return adj, features, labels
+
+
 def load_dataset(
     name: str, cache_dir: str | Path = "data/processed"
 ) -> tuple[sp.csr_matrix, np.ndarray | None, np.ndarray | None]:
@@ -291,4 +322,6 @@ def load_dataset(
         return load_pbmc(cache_dir)
     if name == "ogbn_arxiv":
         return load_ogbn_arxiv(cache_dir)
+    if name in ("coauthor_cs", "coauthor_physics"):
+        return load_coauthor(name, cache_dir)
     raise ValueError(f"unknown dataset: {name}")
