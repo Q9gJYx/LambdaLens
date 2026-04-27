@@ -211,6 +211,13 @@ output/figures/*
 !output/figures/.gitkeep
 output/tables/*
 !output/tables/.gitkeep
+output/embeddings/*
+!output/embeddings/.gitkeep
+output/embeddings_baselines/*
+!output/embeddings_baselines/.gitkeep
+output/embeddings_synth/*
+!output/embeddings_synth/.gitkeep
+output/meta/*.log
 
 # Local notebook and docs artifacts
 notebooks/.ipynb_checkpoints/

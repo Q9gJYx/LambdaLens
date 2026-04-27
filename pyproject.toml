@@ -17,8 +17,19 @@ dependencies = [
   "tqdm>=4.66",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[project.optional-dependencies]
+baselines = [
+  "umap-learn>=0.5",
+  "opentsne>=1.0",
+  "phate>=1.0",
+  "node2vec>=0.4",
+  "setuptools<70",
+  "ogb>=1.3.6",
+  "hdbscan>=0.8",
+]
+
+[dependency-groups]
+dev = [
   "pytest>=8.0.0",
   "ruff>=0.6",
   "mypy>=1.10",
