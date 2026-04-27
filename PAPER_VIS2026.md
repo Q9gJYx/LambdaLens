@@ -1279,3 +1279,81 @@ exists in `qqgjyx/sgtsnepi@b1131f8`; what's needed is `python -m build`
   arithmetic vs harmonic mean for Label-T&C; this re-emission standardizes
   on harmonic. A one-line patch in run_e2_auto_lambda.py to match would
   close the loop, but no current parquet depends on that script's output.
+
+---
+
+### Paper-side ← experiment-side, Phase 4 (appended 2026-04-28, agent EXP-AGENT)
+
+Phase 4 cheap-render tier closed: A insets refreshed, C paper-table
+re-emitted with corrected auto-λ, F ablation shipped, G1 λ-sensitivity
+overlay rendered, H1 Pareto + H2 qualitative figures rendered.
+
+**R4-A (insets refresh)**: `aggregate_insets.py` extended to recompute
+graph-T&C on the fly for PBMC (which has HDBSCAN labels but no features,
+so cell parquets had NaN). N=5 means now populated for all 4 inset λs:
+
+| dataset | λ=1 LT | λ=5 LT | λ=20 LT | λ=80 LT |
+|---|---|---|---|---|
+| cora | 0.855 | 0.908 | **0.935** | 0.904 |
+| mnist_knn | 0.992 | 0.990 | 0.991 | 0.976 |
+| pbmc | 0.954 | 0.960 | 0.960 | 0.959 |
+
+Cora peaks at λ=20 (matches auto-λ); PBMC saturated above λ=5; MNIST
+saturated across all 4. Re-rendered `teaser_pbmc_hero.pdf` and
+`lens_idiom_regimes.pdf`.
+
+**R4-C (paper table)**: `paper_table_comparison.{md,tex}` regenerated
+with all 7 datasets (cora, citeseer, pubmed, mnist_knn, pbmc, ca_astroph,
+ogbn_arxiv) and the corrected `auto_lambda_summary.parquet`.
+
+**R4-F (subtractive ablation)**: 64 rows in `output/tables/ablation.parquet`
++ `ablation_table.tex`. Variants: `full` (auto-λ + PCA-init from
+`comparison_agg`), `pca_init_off` (random init, N=5 new compute),
+`auto_lambda_off_fixed20` (extracted from λ=20 PCA cells),
+`degree_rescaling_off_lambda1` (extracted from λ=1 PCA cells).
+
+Headline ablation deltas (mean Label-T):
+
+| dataset | full | -PCA init | -auto-λ (fixed 20) | -degree rescaling (λ=1) |
+|---|---|---|---|---|
+| cora | 0.924 | 0.912 (-0.012) | 0.935 (+0.011) | 0.855 (**-0.069**) |
+| citeseer | 0.739 | 0.735 (-0.004) | 0.732 (-0.007) | 0.745 (+0.006) |
+| pubmed | 0.903 | 0.857 (**-0.046**) | 0.905 (+0.002) | 0.892 (-0.011) |
+| mnist_knn | 0.982 | 0.990 (+0.008) | 0.991 (+0.009) | 0.992 (+0.010) |
+| pbmc | 0.968 | NaN (graph-only no recompute in F) | NaN | NaN |
+
+Story: degree-rescaling matters most on cora (-0.069 when off);
+PCA-init matters most on pubmed (-0.046); MNIST is fully saturated
+(every variant ≥0.982).
+
+**R4-G1 (λ-sensitivity overlay)**: `output/figures/lambda_sensitivity.pdf`
+plots Label-T (or T) vs log10(λ) for all 6 datasets that have CV(d)
+data, color-coded by CV(d) cool→warm. Auto-λ markers as dotted vertical
+lines; λ<1 region shaded gray. Visualizes that:
+- mnist_knn (CV=0.30) is essentially flat at 0.99 across all 16 λ
+- citeseer (CV=1.22) is also mostly flat ~0.85
+- cora (CV=1.34) and pubmed (CV=1.65) show clear peaks
+- pbmc (CV=0.75) saturates above λ=5
+
+**R4-H1 (Pareto figure)**: `output/figures/pareto_quality_runtime.pdf`
+plots log10(runtime) vs Label-T (or T) per (method, dataset) cell across
+all 7 datasets. Pareto frontier line in dashed gray. ours marked larger
+in brand red.
+
+**R4-H2 (qualitative)**: `output/figures/qualitative_3method_2dataset.pdf`
+2×3 grid: (Cora top, PubMed bottom) × (ours, UMAP, node2vec+UMAP),
+median-Label-T seed per cell, LT corner badge.
+
+**Skipped/deferred**:
+- **G2-G6** (perplexity, n_iter, k-kNN, u, alpha sweeps): require new
+  compute on zjl. G5 (`u`) confirmed broken in R4-G earlier (kwarg not
+  exposed in installed pysgtsnepi). Defer until paper-side asks.
+- **H3** (cores scaling): requires new compute, deferred.
+- **D2** (MNIST node2vec full): on zjl from earlier, not pulled to local;
+  status unknown.
+- **D4** (node2vec multi-seed PBMC/ca_astroph/PubMed): on zjl from earlier,
+  not pulled. The N=5 PHATE/UMAP/openTSNE/pysgtsnepi cells are present in
+  comparison_agg; node2vec single-seed remains the carryover.
+
+**Phase 5 (I1+I2 N=10 + Wilcoxon, J1 ogbn-products)**: paused awaiting
+greenlight; the corrected R5 numbers may shift Phase 5 priorities.
