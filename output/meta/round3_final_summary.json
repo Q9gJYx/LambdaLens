@@ -1,0 +1,411 @@
+{
+  "per_dataset": [
+    {
+      "dataset": "pbmc",
+      "methods": {
+        "node2vec_umap": {
+          "n_seeds": 1,
+          "label_trustworthiness_mean": 0.9654962920818252,
+          "label_trustworthiness_std": 0.0,
+          "label_trustworthiness_best3": 0.9654962920818252,
+          "label_continuity_mean": 0.9851907039283931,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.69094194628625,
+          "trustworthiness_std": 0.0,
+          "continuity_mean": 0.6616512517580871,
+          "runtime_mean": 1594.1474767079926,
+          "runtime_std": 0.0
+        },
+        "opentsne": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.7672995044360686,
+          "label_trustworthiness_std": 0.013975737161254479,
+          "label_trustworthiness_best3": 0.7759335066121991,
+          "label_continuity_mean": 0.9975194309133183,
+          "label_continuity_std": 0.002644563109603985,
+          "trustworthiness_mean": 0.642030182037372,
+          "trustworthiness_std": 0.0016355682368818399,
+          "continuity_mean": 0.4285233690978501,
+          "runtime_mean": 30.74120351660531,
+          "runtime_std": 0.5714532000841597
+        },
+        "phate": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9613506596752627,
+          "label_trustworthiness_std": 0.0028576688000052372,
+          "label_trustworthiness_best3": 0.9632018060370539,
+          "label_continuity_mean": 0.9822331466724414,
+          "label_continuity_std": 0.0016742884608207046,
+          "trustworthiness_mean": 0.6158044476592324,
+          "trustworthiness_std": 0.0006065810855184567,
+          "continuity_mean": 0.6495075903824258,
+          "runtime_mean": 7.18234406679403,
+          "runtime_std": 1.3351198387070173
+        },
+        "pysgtsnepi": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9682918943552042,
+          "label_trustworthiness_std": 0.001186031908967653,
+          "label_trustworthiness_best3": 0.9691826949992101,
+          "label_continuity_mean": 0.9823650235140828,
+          "label_continuity_std": 0.0019632872094243197,
+          "trustworthiness_mean": 0.7044003166566204,
+          "trustworthiness_std": 0.0014284277087758652,
+          "continuity_mean": 0.6529767029669815,
+          "runtime_mean": 12.886004825204145,
+          "runtime_std": 1.7247035005518176
+        },
+        "umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9737659216480209,
+          "label_trustworthiness_std": 0.006858216406824949,
+          "label_trustworthiness_best3": 0.9784032314662311,
+          "label_continuity_mean": 0.9860577648050135,
+          "label_continuity_std": 0.0033519208090538573,
+          "trustworthiness_mean": 0.6814713120353626,
+          "trustworthiness_std": 0.001478824233373382,
+          "continuity_mean": 0.6501800774228116,
+          "runtime_mean": 21.473297724997973,
+          "runtime_std": 2.241707297263728
+        }
+      }
+    },
+    {
+      "dataset": "cora",
+      "methods": {
+        "node2vec_umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9146647200197779,
+          "label_trustworthiness_std": 0.005930272099133166,
+          "label_trustworthiness_best3": 0.918172980643003,
+          "label_continuity_mean": 0.9979013225419566,
+          "label_continuity_std": 0.0006126486443881434,
+          "trustworthiness_mean": 0.6279655177156311,
+          "trustworthiness_std": 0.0013484476250474704,
+          "continuity_mean": 0.5377669163349827,
+          "runtime_mean": 419.97410220839663,
+          "runtime_std": 4.141170972972527
+        },
+        "opentsne": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.7651881499545276,
+          "label_trustworthiness_std": 0.003665030364597716,
+          "label_trustworthiness_best3": 0.7674233332300165,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6577987414809743,
+          "trustworthiness_std": 0.0032585895368085877,
+          "continuity_mean": 0.7718184508828246,
+          "runtime_mean": 12.39483864979702,
+          "runtime_std": 1.3863769427423966
+        },
+        "phate": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.7624727549277464,
+          "label_trustworthiness_std": 0.00372228167830081,
+          "label_trustworthiness_best3": 0.7650649804235997,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6253988467395958,
+          "trustworthiness_std": 0.0012315601667202672,
+          "continuity_mean": 0.7404122066993262,
+          "runtime_mean": 4.2225560499995485,
+          "runtime_std": 0.35610720743359703
+        },
+        "pysgtsnepi": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9239039665609454,
+          "label_trustworthiness_std": 1.1102230246251565e-16,
+          "label_trustworthiness_best3": 0.9239039665609453,
+          "label_continuity_mean": 0.9981929656449939,
+          "label_continuity_std": 1.1102230246251565e-16,
+          "trustworthiness_mean": 0.6206614972580495,
+          "trustworthiness_std": 0.0,
+          "continuity_mean": 0.557347922838462,
+          "runtime_mean": 10.215577158203814,
+          "runtime_std": 0.07179137738814219
+        },
+        "umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.803929072969704,
+          "label_trustworthiness_std": 0.003206778296562598,
+          "label_trustworthiness_best3": 0.8056627620085265,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6381662737806091,
+          "trustworthiness_std": 0.0007359380621799099,
+          "continuity_mean": 0.740069886957008,
+          "runtime_mean": 9.747430841400638,
+          "runtime_std": 1.7296130778979781
+        }
+      }
+    },
+    {
+      "dataset": "citeseer",
+      "methods": {
+        "node2vec_umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.7455701608904156,
+          "label_trustworthiness_std": 0.011497234722654761,
+          "label_trustworthiness_best3": 0.7526973538605469,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6397050982823782,
+          "trustworthiness_std": 0.001573880672011284,
+          "continuity_mean": 0.513510921355903,
+          "runtime_mean": 431.9523238913971,
+          "runtime_std": 6.834736205524006
+        },
+        "opentsne": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.7754993511815881,
+          "label_trustworthiness_std": 0.0,
+          "label_trustworthiness_best3": 0.7754993511815881,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6193764945163364,
+          "trustworthiness_std": 0.0,
+          "continuity_mean": 0.6635306537627303,
+          "runtime_mean": 22.88705770820088,
+          "runtime_std": 0.6161065138428178
+        },
+        "phate": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.8539901858678947,
+          "label_trustworthiness_std": 0.004429657841998755,
+          "label_trustworthiness_best3": 0.8566712572202784,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6080868056086224,
+          "trustworthiness_std": 0.0007478920862846935,
+          "continuity_mean": 0.7360243348560812,
+          "runtime_mean": 5.32872155860241,
+          "runtime_std": 0.2077375052097436
+        },
+        "pysgtsnepi": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.73906962977841,
+          "label_trustworthiness_std": 0.0,
+          "label_trustworthiness_best3": 0.73906962977841,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6367393750304755,
+          "trustworthiness_std": 0.0,
+          "continuity_mean": 0.5070902693325551,
+          "runtime_mean": 13.770287383400136,
+          "runtime_std": 0.18130111649802907
+        },
+        "umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.6198348634209598,
+          "label_trustworthiness_std": 0.004463861896500632,
+          "label_trustworthiness_best3": 0.6227742365445241,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.5140429042784197,
+          "trustworthiness_std": 0.0013077310340329062,
+          "continuity_mean": 0.6116826085785754,
+          "runtime_mean": 26.388879725002333,
+          "runtime_std": 0.0807064744425603
+        }
+      }
+    },
+    {
+      "dataset": "ca_astroph",
+      "methods": {
+        "node2vec_umap": {
+          "n_seeds": 1,
+          "label_trustworthiness_mean": NaN,
+          "label_trustworthiness_std": NaN,
+          "label_trustworthiness_best3": NaN,
+          "label_continuity_mean": NaN,
+          "label_continuity_std": NaN,
+          "trustworthiness_mean": 0.6209909825195901,
+          "trustworthiness_std": 0.0,
+          "continuity_mean": 0.5436039649052307,
+          "runtime_mean": 4082.7335165000113,
+          "runtime_std": 0.0
+        },
+        "opentsne": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": NaN,
+          "label_trustworthiness_std": NaN,
+          "label_trustworthiness_best3": NaN,
+          "label_continuity_mean": NaN,
+          "label_continuity_std": NaN,
+          "trustworthiness_mean": 0.6200446314379479,
+          "trustworthiness_std": 0.0015899414833540544,
+          "continuity_mean": 0.3636207525282968,
+          "runtime_mean": 162.0816991834028,
+          "runtime_std": 3.7200812865595267
+        },
+        "phate": {
+          "n_seeds": 1,
+          "label_trustworthiness_mean": NaN,
+          "label_trustworthiness_std": NaN,
+          "label_trustworthiness_best3": NaN,
+          "label_continuity_mean": NaN,
+          "label_continuity_std": NaN,
+          "trustworthiness_mean": 0.577707740941665,
+          "trustworthiness_std": 0.0,
+          "continuity_mean": 0.5958893202062823,
+          "runtime_mean": 10.5,
+          "runtime_std": 0.0
+        },
+        "pysgtsnepi": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": NaN,
+          "label_trustworthiness_std": NaN,
+          "label_trustworthiness_best3": NaN,
+          "label_continuity_mean": NaN,
+          "label_continuity_std": NaN,
+          "trustworthiness_mean": 0.6239181134552274,
+          "trustworthiness_std": 0.0019013329251066009,
+          "continuity_mean": 0.5705600862634786,
+          "runtime_mean": 29.60294365840673,
+          "runtime_std": 1.234079034575652
+        },
+        "umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": NaN,
+          "label_trustworthiness_std": NaN,
+          "label_trustworthiness_best3": NaN,
+          "label_continuity_mean": NaN,
+          "label_continuity_std": NaN,
+          "trustworthiness_mean": 0.5943023877838055,
+          "trustworthiness_std": 0.002630240895479731,
+          "continuity_mean": 0.541970199450807,
+          "runtime_mean": 124.79938553300163,
+          "runtime_std": 0.3958471077393395
+        }
+      }
+    },
+    {
+      "dataset": "mnist_knn",
+      "methods": {
+        "opentsne": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9943154449843765,
+          "label_trustworthiness_std": 0.004303357360924271,
+          "label_trustworthiness_best3": 0.9976591104319145,
+          "label_continuity_mean": 0.9764419440282435,
+          "label_continuity_std": 0.0012547862083833773,
+          "trustworthiness_mean": 0.967607096108767,
+          "trustworthiness_std": 0.0008413978008697904,
+          "continuity_mean": 0.9504302232938183,
+          "runtime_mean": 222.94829492520074,
+          "runtime_std": 7.6691895580395135
+        },
+        "phate": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": NaN,
+          "label_trustworthiness_std": NaN,
+          "label_trustworthiness_best3": NaN,
+          "label_continuity_mean": NaN,
+          "label_continuity_std": NaN,
+          "trustworthiness_mean": NaN,
+          "trustworthiness_std": NaN,
+          "continuity_mean": NaN,
+          "runtime_mean": 8.467904433602234,
+          "runtime_std": 0.8998092302898232
+        },
+        "pysgtsnepi": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9815149187278696,
+          "label_trustworthiness_std": 0.0007476432963745841,
+          "label_trustworthiness_best3": 0.9819775501327247,
+          "label_continuity_mean": 0.9845891679160547,
+          "label_continuity_std": 0.000411247235531972,
+          "trustworthiness_mean": 0.9682217539347665,
+          "trustworthiness_std": 0.0007927404445016038,
+          "continuity_mean": 0.9524049898868127,
+          "runtime_mean": 91.67734165019938,
+          "runtime_std": 0.6106694341064145
+        },
+        "umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9999053906257117,
+          "label_trustworthiness_std": 0.00011743140435513265,
+          "label_trustworthiness_best3": 0.9999770476900961,
+          "label_continuity_mean": 0.971478373706329,
+          "label_continuity_std": 0.0005080857705752709,
+          "trustworthiness_mean": 0.9526426773826268,
+          "trustworthiness_std": 0.0011649640440434224,
+          "continuity_mean": 0.9495132141182774,
+          "runtime_mean": 133.3123718163988,
+          "runtime_std": 2.828353481323423
+        }
+      }
+    },
+    {
+      "dataset": "pubmed",
+      "methods": {
+        "node2vec_umap": {
+          "n_seeds": 1,
+          "label_trustworthiness_mean": 0.8782900892409015,
+          "label_trustworthiness_std": 0.0,
+          "label_trustworthiness_best3": 0.8782900892409015,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.6301685781260465,
+          "trustworthiness_std": 0.0,
+          "continuity_mean": 0.7164220159399907,
+          "runtime_mean": 1066.711876292,
+          "runtime_std": 0.0
+        },
+        "opentsne": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.8831240204370564,
+          "label_trustworthiness_std": 0.00797287046486016,
+          "label_trustworthiness_best3": 0.8895518837929594,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.8426044760565267,
+          "trustworthiness_std": 0.0014104887578562926,
+          "continuity_mean": 0.8779119174871074,
+          "runtime_mean": 86.69857494180033,
+          "runtime_std": 5.457716560728823
+        },
+        "phate": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.8947594815952812,
+          "label_trustworthiness_std": 0.0067499175604012526,
+          "label_trustworthiness_best3": 0.899394843339708,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.7071186787221218,
+          "trustworthiness_std": 0.002885831344455495,
+          "continuity_mean": 0.8916159089143392,
+          "runtime_mean": 17.50888674159942,
+          "runtime_std": 4.078827506890726
+        },
+        "pysgtsnepi": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.9034165128597593,
+          "label_trustworthiness_std": 0.004341091450584441,
+          "label_trustworthiness_best3": 0.9059979605053984,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.636331098519858,
+          "trustworthiness_std": 0.0021033474245701245,
+          "continuity_mean": 0.7288907941865916,
+          "runtime_mean": 45.50555237479566,
+          "runtime_std": 1.8501969082107732
+        },
+        "umap": {
+          "n_seeds": 5,
+          "label_trustworthiness_mean": 0.8796332966256672,
+          "label_trustworthiness_std": 0.014273058148688463,
+          "label_trustworthiness_best3": 0.8899406416921822,
+          "label_continuity_mean": 1.0,
+          "label_continuity_std": 0.0,
+          "trustworthiness_mean": 0.8026485679458844,
+          "trustworthiness_std": 0.001886421678946063,
+          "continuity_mean": 0.8903053780724667,
+          "runtime_mean": 40.56418319959776,
+          "runtime_std": 3.7156306595982347
+        }
+      }
+    }
+  ]
+}
