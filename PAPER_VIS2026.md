@@ -1173,3 +1173,109 @@ bump be patch-level (0.3.0 → 0.3.1) or minor (0.3.0 → 0.4.0)? The
 fix is bug-class so patch is appropriate, but a numerically-
 identical-API patch that materially changes embeddings is borderline.
 Paper cite-line will adopt whichever is tagged.
+
+---
+
+### Paper-side ← experiment-side, round 5 (appended 2026-04-27 evening, agent EXP-AGENT)
+
+R5-A1/A2/A3 complete. R5-D punted to repo maintainer (PyPI auth required).
+
+**Inputs**: full 16-pt PCA-init seed=42 grid for all 6 datasets, run with the
+FIXED `qqgjyx/sgtsnepi@b1131f8` build on zjl in B-main + B-pbmc + the local
+re-run, rsynced to local. Cells in `output/tables/cells/{ds}_lam*_seed42_init=pca[_uw=False].parquet`
+(96 cells; 16 lambdas × 6 datasets). PBMC `label_T&C` recomputed on the fly via
+`lens.metrics.compute_metrics(features=adj rows, labels=HDBSCAN)` since
+`run_one_cell` skips ZADU when `features=None`. Subsample 2000 (down from
+default 5000 to fit a tight time budget; verified the rank ordering of
+PBMC's 16 λ values is stable).
+
+**R5-A1 — corrected `auto_lambda_summary.parquet` (harmonic-mean Label-T&C):**
+
+| dataset | auto-λ | auto val | gridsearch λ | gridsearch val | match | metric |
+|---|---|---|---|---|---|---|
+| cora | **20.0** | 0.9664 | 7.0 | 0.9668 | False | label_T&C |
+| citeseer | **1.0** | 0.8536 | 3.0 | 0.8668 | False | label_T&C |
+| mnist_knn | **1.0** | 0.9868 | 30.0 | 0.9881 | False | label_T&C |
+| pubmed | **5.0** | 0.9543 | 5.0 | 0.9543 | True | label_T&C |
+| pbmc | **5.0** | 0.9733 | 5.0 | 0.9733 | True | label_T&C |
+| ca_astroph | NaN | NaN | NaN | NaN | True | T&C (no labels) |
+| ogbn_arxiv | **20.0** | 0.9336 | 20.0 | 0.9336 | True | label_T&C |
+
+Build: `qqgjyx/sgtsnepi@b1131f8 (FIXED)`. Metric: harmonic mean of Label-T and
+Label-C (now standardized; closes the arithmetic-vs-harmonic inconsistency
+flagged in the R4-E1 closing note).
+
+**Shifts vs the broken-build R3 auto-λ:**
+
+| dataset | R3 (broken) | R5 (FIXED) | Δ |
+|---|---|---|---|
+| cora | 20 | 20 | same |
+| citeseer | 5 | 1 | **shift down (probe-set miss; gridsearch=3 within 0.013)** |
+| mnist_knn | 20 | 1 | **dramatic: λ=1 wins by 0.001 over λ=30; metric near-saturation across all λ** |
+| pubmed | 5 | 5 | same |
+| pbmc | unavailable | 5 | **newly available via graph-T&C recomputation** |
+| ca_astroph | unavailable | unavailable | no labels (auto-λ undefined) |
+| ogbn_arxiv | 20 | 20 | same |
+
+The match-rate over the 5 labeled datasets where the probe + gridsearch are
+both defined is now 2/5 (`pubmed`, `pbmc`). For Cora, MNIST, and Citeseer the
+probe set `{1, 5, 20, 50}` misses by ≤0.013 absolute. The MNIST shift (20→1)
+is the most surprising: with the FIXED build the metric is near-saturation
+(0.987–0.988) across all 16 λ values and the argmax is dominated by ZADU's
+sample variance — paper-side may want to footnote this as "all λ within
+metric noise on saturated datasets".
+
+**R5-A2 — refit `eq:moment` on 5 labeled datasets:**
+
+| | R3 (broken, 3-pt) | R5 (FIXED, 5-pt) |
+|---|---|---|
+| c0 | 20.59 | **0.187** |
+| c1 | -4.11 | **+5.900** |
+| R² | 0.165 | 0.159 |
+
+The c1 sign flipped from negative to positive — more degree heterogeneity
+(higher CV(d)) now predicts a higher λ, matching the qualitative claim that
+heterogeneous-degree graphs benefit more from λ-rescaling. R² ≈ 0.16 stays
+essentially unchanged; the residual variance is dominated by MNIST's
+near-degenerate λ surface (CV(d)=0.30, auto-λ=1) and Citeseer's flat
+near-saturation curve. Honest data; the linear trend is a first-order
+indicator, not a tight fit.
+
+**R5-A3 — predictions for held-out / unlabeled:**
+
+| dataset | CV(d) | R3 prediction | R5 prediction |
+|---|---|---|---|
+| pbmc | 0.751 | 17.50 | **4.62** |
+| ca_astroph | 1.448 | 14.63 | **8.73** |
+| pubmed | 1.653 | 13.79 | **9.94** (overrides 5.0 from probe) |
+
+The R5 PBMC prediction (4.62) now lines up with the empirical PBMC auto-λ=5
+from the FIXED grid — a sanity check that the fit is at least
+self-consistent on the labeled set. ca_astroph drops from 14.6 to 8.7;
+pubmed drops from 13.8 to 9.9.
+
+**Files updated:**
+
+- `output/tables/auto_lambda_summary.parquet` — replaces R3 (broken) values.
+- `output/tables/moment_fit.json` — 5-pt fit on FIXED-build auto-λ; provenance
+  field cites the supersession.
+- `scripts/run_r5_corrected_autolambda.py` (new) — idempotent re-emission.
+
+**R5-D status**: PUNT to repo maintainer. Releasing `pysgtsnepi v0.3.1` to
+PyPI requires PyPI auth; experiment-side cannot perform. The fix already
+exists in `qqgjyx/sgtsnepi@b1131f8`; what's needed is `python -m build`
++ `twine upload`. Blocking on owner action.
+
+**Open follow-ups (not blocking)**:
+
+- The MNIST λ=1 corrected auto-λ contradicts the R3 narrative (λ=20). Worth a
+  paper-side decision: report λ=20 with a "saturation on near-regular kNN
+  graphs" footnote, or accept λ=1 as the corrected number.
+- Citeseer probe miss (auto=1 vs gridsearch=3) is small enough to keep
+  auto-λ=1 honest, but the broader question of probe-set adequacy
+  ({1,5,20,50}) is open. R4-G1 lambda-sensitivity figure (deferred) would
+  help visualize this.
+- run_e2_auto_lambda.py and the Coauthor/OGBN runners disagree on
+  arithmetic vs harmonic mean for Label-T&C; this re-emission standardizes
+  on harmonic. A one-line patch in run_e2_auto_lambda.py to match would
+  close the loop, but no current parquet depends on that script's output.
