@@ -68,6 +68,9 @@ def run_e1(ds: str, out_root: Path, max_workers: int) -> pd.DataFrame:
 
 
 def run_e2(ds: str, grid_df: pd.DataFrame, out_root: Path) -> float | None:
+    if grid_df.empty or "lambda_" not in grid_df.columns:
+        print(f"[E2 {ds}] grid_df empty or missing lambda_ column; defaulting auto-lambda=20", flush=True)
+        return 20.0
     best_lam, best_val = None, -1.0
     for lam in AUTO_LAMBDA_PROBE:
         row = grid_df[grid_df["lambda_"] == lam]

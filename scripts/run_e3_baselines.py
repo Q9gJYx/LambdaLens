@@ -126,9 +126,17 @@ def _run_phate(adj: sp.csr_matrix, features: np.ndarray | None, seed: int, datas
                              random_state=seed, n_jobs=-1, knn=15, verbose=0)
             Y = op.fit_transform(sub)
         else:
+            dense = adj.toarray()
+            # Ensure no zero-row affinities (disconnected nodes) which cause NaN
+            # in PHATE's diffusion operator. Add a tiny self-loop to isolated rows.
+            row_sums = dense.sum(axis=1)
+            isolated = row_sums == 0
+            if isolated.any():
+                dense[isolated, :] = 0.0
+                dense[np.where(isolated)[0], np.where(isolated)[0]] = 1e-8
             op = phate.PHATE(n_components=2, knn_dist="precomputed_affinity",
                              random_state=seed, n_jobs=-1, knn=15, verbose=0)
-            Y = op.fit_transform(adj.toarray())
+            Y = op.fit_transform(dense)
     else:
         info["input_format"] = "features"
         if dataset in PHATE_SUBSAMPLE_DATASETS and features.shape[0] > subsample_n:

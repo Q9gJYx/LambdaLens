@@ -281,30 +281,43 @@ def load_coauthor(
     name: str,
     cache_dir: str | Path = "data/processed",
 ) -> tuple[sp.csr_matrix, np.ndarray, np.ndarray]:
-    """Load Coauthor-CS or Coauthor-Physics from PyG.
+    """Load Coauthor-CS or Coauthor-Physics from Shchur 2018 npz files.
 
     Coauthor-CS:      n=18,333, 15 classes, 6,805-d features (Shchur 2018)
     Coauthor-Physics: n=34,493,  5 classes, 8,415-d features
-    """
-    from torch_geometric.datasets import Coauthor  # type: ignore
 
-    pyg_name = {"coauthor_cs": "CS", "coauthor_physics": "Physics"}[name]
+    Downloads from github.com/shchur/gnn-benchmark if not cached.
+    No PyG dependency.
+    """
+    npz_filenames = {
+        "coauthor_cs": "ms_academic_cs.npz",
+        "coauthor_physics": "ms_academic_phy.npz",
+    }
+    base_url = (
+        "https://raw.githubusercontent.com/shchur/gnn-benchmark/master/data/npz/"
+    )
     cache = Path(cache_dir) / name
     cache.mkdir(parents=True, exist_ok=True)
-    dataset = Coauthor(root=str(cache), name=pyg_name)
-    data = dataset[0]
-    edge_index = data.edge_index.numpy()
-    n = int(data.num_nodes)
+    fname = npz_filenames[name]
+    cache_path = cache / fname
+    if not cache_path.exists():
+        _atomic_download(base_url + fname, cache_path)
+
+    data = np.load(str(cache_path), allow_pickle=True)
+    # Reconstruct CSR adjacency
     adj = sp.csr_matrix(
-        (np.ones(edge_index.shape[1], np.float32),
-         (edge_index[0], edge_index[1])),
-        shape=(n, n),
-    )
+        (data["adj_data"], data["adj_indices"], data["adj_indptr"]),
+        shape=tuple(data["adj_shape"]),
+    ).astype(np.float32)
     adj = ((adj + adj.T) > 0).astype(np.float32)
     adj.setdiag(0)
     adj.eliminate_zeros()
-    features = data.x.numpy().astype(np.float32)
-    labels = data.y.numpy().astype(int)
+    # Reconstruct feature matrix (CSR sparse -> dense)
+    features = sp.csr_matrix(
+        (data["attr_data"], data["attr_indices"], data["attr_indptr"]),
+        shape=tuple(data["attr_shape"]),
+    ).toarray().astype(np.float32)
+    labels = data["labels"].astype(int)
     return adj, features, labels
 
 
