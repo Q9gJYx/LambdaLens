@@ -15,10 +15,18 @@ import scipy.sparse as sp
 
 def main() -> int:
     print("[J1] loading ogbn-products...", flush=True)
-    # OGB loader prompts on stdin for download confirmation when the dataset
-    # is missing. In tmux/non-interactive contexts this would hang forever
-    # (or be killed by the queue's timeout, producing no result). Patch
-    # builtins.input to auto-confirm before importing/calling OGB.
+    # OGB has TWO non-interactive issues:
+    #   1. stdin prompt for download confirmation (handled by `yes y |` pipe
+    #      at the shell level when launched);
+    #   2. torch.load(weights_only=True) default in torch >=2.6 rejects OGB's
+    #      pickle protocol 4 cache files. Patch torch.load to opt out, same
+    #      as cursor's load_ogbn_arxiv pattern in lens.data.
+    import torch
+    _orig_torch_load = torch.load
+    def _torch_load_ogb_compat(*args, **kwargs):
+        kwargs.setdefault("weights_only", False)
+        return _orig_torch_load(*args, **kwargs)
+    torch.load = _torch_load_ogb_compat
     import builtins
     _orig_input = builtins.input
     def _auto_yes(prompt=""):
@@ -31,6 +39,7 @@ def main() -> int:
                                  root="data/processed/ogbn_products")
     finally:
         builtins.input = _orig_input
+        torch.load = _orig_torch_load
     graph, labels = ds[0]
     n = int(graph["num_nodes"])
     edge_index = graph["edge_index"]
