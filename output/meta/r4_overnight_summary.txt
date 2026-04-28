@@ -1,0 +1,87 @@
+R4 overnight queue summary  2026-04-27T20:00:04Z
+===========================================
+State JSON:
+{
+  "started": "2026-04-27T17:13:10Z",
+  "i1_status": "running",
+  "updated": "2026-04-27T20:00:04Z",
+  "queue_status": "completed",
+  "i1": "completed",
+  "d4": "completed",
+  "g": "completed",
+  "j1": "timeout",
+  "i2": "completed",
+  "h3": "completed",
+  "ended": "2026-04-27T20:00:04Z"
+}
+Cells in cells_baselines:
+127
+
+Per (dataset, method) cell counts:
+  pbmc        /pysgtsnepi     : 5
+  pbmc        /umap           : 5
+  pbmc        /opentsne       : 5
+  pbmc        /phate          : 5
+  pbmc        /node2vec_umap  : 5
+  citeseer    /pysgtsnepi     : 5
+  citeseer    /umap           : 5
+  citeseer    /opentsne       : 5
+  citeseer    /phate          : 5
+  citeseer    /node2vec_umap  : 0
+  mnist_knn   /pysgtsnepi     : 5
+  mnist_knn   /umap           : 5
+  mnist_knn   /opentsne       : 5
+  mnist_knn   /phate          : 10
+  mnist_knn   /node2vec_umap  : 1
+  cora        /pysgtsnepi     : 0
+  cora        /umap           : 0
+  cora        /opentsne       : 0
+  cora        /phate          : 0
+  cora        /node2vec_umap  : 0
+  pubmed      /pysgtsnepi     : 0
+  pubmed      /umap           : 0
+  pubmed      /opentsne       : 0
+  pubmed      /phate          : 0
+  pubmed      /node2vec_umap  : 5
+  ca_astroph  /pysgtsnepi     : 0
+  ca_astroph  /umap           : 0
+  ca_astroph  /opentsne       : 0
+  ca_astroph  /phate          : 5
+  ca_astroph  /node2vec_umap  : 5
+  ogbn_arxiv  /pysgtsnepi     : 5
+  ogbn_arxiv  /umap           : 5
+  ogbn_arxiv  /opentsne       : 5
+  ogbn_arxiv  /phate          : 1
+  ogbn_arxiv  /node2vec_umap  : 0
+
+Last 30 log lines:
+  phate: n=5 label_T=nan+-nan runtime=64.2+-15.6s
+[merge] mnist_knn: wrote 26 cell rows to mnist_knn_comparison.parquet
+[merge] mnist_knn: wrote agg (5 methods) to mnist_knn_comparison_agg.parquet
+  node2vec_umap: n=1 label_T=1.000+-0.000 runtime=1693.1+-0.0s
+  opentsne: n=5 label_T=0.999+-0.001 runtime=300.1+-10.0s
+  phate: n=10 label_T=0.966+-0.002 runtime=102.0+-39.1s
+  pysgtsnepi: n=5 label_T=0.981+-0.001 runtime=235.2+-3.1s
+  umap: n=5 label_T=0.997+-0.004 runtime=190.8+-12.2s
+[emit_paper_table] output/tables/paper_table_comparison.md  (6 datasets)
+[emit_paper_table] output/tables/paper_table_comparison.tex
+[H1] wrote output/figures/pareto_quality_runtime.pdf
+/home/zhoujunlin/WorkSpace/wh/SGtSNE-Pi/src/lens/data.py:99: VisibleDeprecationWarning: dtype(): align should be passed as Python or NumPy boolean but got `align=0`. Did you mean to pass a tuple to create a subarray type? (Deprecated NumPy 2.4)
+  objs[f] = pickle.load(fp, encoding="latin1")
+[H2] wrote output/figures/qualitative_3method_2dataset.pdf
+
+========== [2026-04-27T20:00:04Z] OVERNIGHT QUEUE COMPLETE ==========
+Final state:
+{
+  "started": "2026-04-27T17:13:10Z",
+  "i1_status": "running",
+  "updated": "2026-04-27T20:00:04Z",
+  "queue_status": "completed",
+  "i1": "completed",
+  "d4": "completed",
+  "g": "completed",
+  "j1": "timeout",
+  "i2": "completed",
+  "h3": "completed",
+  "ended": "2026-04-27T20:00:04Z"
+}
