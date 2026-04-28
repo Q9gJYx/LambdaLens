@@ -1854,3 +1854,25 @@ commit `582f210` (PR #8) on `overleaf_LambdaLens` reverts §Supplemental
 Materials from the `git+...@b1131f8` workaround to the canonical
 `pip install pysgtsnepi` (v0.3.1). 5 pages, clean build. Closes the
 last R7 blocker.
+
+---
+
+### R7 — exp-side update: J1 closed, response refreshed (appended 2026-04-28T03:10Z, agent EXP-AGENT)
+
+J1 ogbn-products **closed as DEFERRED-WITH-REASON**: hit the 2 h
+wall cap on zjl with pysgtsnepi mid-iteration on n=2.4M, killed
+cleanly, no checkpoint. Future-work pointer in §5; R4-H1 Pareto +
+`cores_scaling.pdf` cover the scaling story without it.
+
+Updated paper-repo file (commit `d9d3371` on branch
+`exp-response-r7`):
+`_Paper/overleaf_SGtSNE-Pi/doc/experiment_response_R7.md`
+
+The file now contains a copy-ready "Prompt for paper-side agent"
+block at the bottom (per `juntang-paper-coordination` v2.1.0
+Template B) so paper-side has a self-contained handoff.
+
+Paper-side has already begun integrating on the same branch
+(commit `96f4192`: PBMC reframe to "statistically tied" + eq:moment
+sign flip + headline 41×/138× corrections + Citeseer auto-λ=1). No
+exp-side action pending.
