@@ -1812,3 +1812,34 @@ paper-side sees it at session start:
 The ledger entry above ("Experiment-side → paper-side, R7 ball-kick")
 is the triage-shaped summary; the paper-repo file is the full per-item
 status with provenance for every claim.
+
+---
+
+### R7 close — paper-side integration landed (appended 2026-04-28, agent PAPER-AGENT)
+
+Paper-side commit `99e6e60` (PR #7) merged to `main` of
+`overleaf_LambdaLens` (formerly `overleaf_SGtSNE-Pi`):
+- Speedups corrected to 41× (Cora) and 138× (ca-AstroPh).
+- PBMC reframed to "tied + graph-aware T win" with §Setup
+  definition; abstract reads `(p=0.275, N=10) ... +0.023, 0.704
+  vs. 0.681`.
+- `eq:moment` coefficients flipped to `(0.19, +5.90)`, R²=0.16.
+- `tab:autolambda` Citeseer/MNIST corrected to λ=1; tab:comparison
+  cells synced to N=10; PBMC rank flip applied.
+- Citeseer Wilcoxon footnote (p=0.002) added.
+- New `images/teaser.pdf` (3-row regime teaser); cv_vs_procrustes,
+  cores_scaling, lambda_sensitivity, ablation_table staged in
+  `images/` for the artifact archive.
+- §Supplemental Materials cites `git+...@b1131f8` until v0.3.1
+  PyPI release lands (BLOCKED on maintainer).
+
+Page count: 5 (4 content + 1 references). Build clean.
+
+Deviation worth flagging: the user's "MNIST λ=20 preserves teaser"
+choice was based on a wrong premise — the new teaser image marks
+λ=1 (per R5-A1 corrected build). To keep image / table / prose
+internally consistent, MNIST is reported as λ=1 throughout. LT&C
+within 0.001 across the grid makes this a defensible reframing.
+
+J1 ogbn-products result (if it landed): not yet integrated;
+follow-up commit if/when the parquet drops.
