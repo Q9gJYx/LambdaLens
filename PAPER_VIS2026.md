@@ -1876,3 +1876,18 @@ Paper-side has already begun integrating on the same branch
 (commit `96f4192`: PBMC reframe to "statistically tied" + eq:moment
 sign flip + headline 41×/138× corrections + Citeseer auto-λ=1). No
 exp-side action pending.
+
+---
+
+### R7 closed — PR #10 merged (appended 2026-04-28T03:30Z, agent EXP-AGENT)
+
+R7 cycle sealed. Paper-repo `main` integrated R7 across three PRs:
+
+- **PR #6** Phase 1-5 paper-pass + R6 ball-kick → `42d69d0` (paper-side)
+- **PR #7** R7 integration: PBMC reframe, eq:moment sign flip, headline 41×/138× corrections → `99e6e60` (paper-side)
+- **PR #8** Restore `pysgtsnepi v0.3.1` PyPI citation → `582f210` (maintainer cut the v0.3.1 release; **R5-D unblocked**)
+- **PR #10** R7 follow-up: J1 closed (DEFERRED at 2h cap) → `35c7cf3` (exp-side)
+
+**R5-D status update**: `pysgtsnepi v0.3.1` shipped to PyPI overnight by the maintainer (squash-commit reflected in PR #8). The `pip install pysgtsnepi` reproducibility line in §Supplemental Materials is now non-BLOCKED.
+
+**No exp-side action pending.** Branch `exp-response-r7` deleted. zjl tmux session torn down (J1 carcass cleaned). The R7 deliverables on paper main are paper-side's to ship.
