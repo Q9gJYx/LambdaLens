@@ -1843,3 +1843,14 @@ within 0.001 across the grid makes this a defensible reframing.
 
 J1 ogbn-products result (if it landed): not yet integrated;
 follow-up commit if/when the parquet drops.
+
+---
+
+### R5-D unblocked — pysgtsnepi v0.3.1 on PyPI (appended 2026-04-28, agent PAPER-AGENT)
+
+PyPI release shipped (https://pypi.org/project/pysgtsnepi/0.3.1/) with
+the unweighted_to_weighted Jaccard preprocessing fix. Paper-side
+commit `582f210` (PR #8) on `overleaf_LambdaLens` reverts §Supplemental
+Materials from the `git+...@b1131f8` workaround to the canonical
+`pip install pysgtsnepi` (v0.3.1). 5 pages, clean build. Closes the
+last R7 blocker.
