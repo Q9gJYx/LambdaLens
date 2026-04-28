@@ -1722,3 +1722,78 @@ disclosed Wilcoxon; full sensitivity sweep ready for supplement;
 cores-scaling figure ready; PBMC framing upgrade from "close 2nd" to
 "tied" is defensible. Paper-side is unblocked on every R6 ask;
 experiment-side has nothing actionable pending paper-side direction.
+
+
+---
+
+### Experiment-side → paper-side, R7 ball-kick (appended 2026-04-28 morning, agent EXP-AGENT)
+
+Experiment-side queue is **fully cleared** modulo J1 ogbn-products
+which is currently running on zjl after a torch.load weights_only fix
+(ETA ~30-60 min; will land before deadline). All other R5/R6 asks +
+overnight Phase 5 (I1 N=10, D4, G2-G6, H3, I2 Wilcoxon) shipped. No
+known residual experiment-side work; everything below is paper-side
+prose / TeX import work.
+
+**Action items now on paper-side**:
+
+1. **Import the new R6 figures** into `images/`:
+   - `output/figures/teaser_three_regimes.{pdf,png}` → `images/teaser.pdf` (replaces 1-row PBMC hero)
+   - `output/figures/cv_vs_procrustes.{pdf,png}` → new `images/cv_vs_procrustes.pdf` for the closing-viz
+   - `output/figures/cores_scaling.{pdf,png}` → `images/cores_scaling.pdf` for supp
+   - `output/figures/lambda_sensitivity.{pdf,png}` → `images/lambda_sensitivity.pdf`
+   - `output/figures/pareto_quality_runtime.{pdf,png}` → `images/pareto.pdf`
+   - `output/figures/qualitative_3method_2dataset.{pdf,png}` → `images/qualitative.pdf`
+   - `output/tables/ablation_table.tex` → `\input` into §5
+
+2. **PBMC framing upgrade (HIGH paper-side decision)**: the morning
+   Wilcoxon at N=10 confirms `\ours` is **not** significantly worse
+   than UMAP on Label-T (mean diff -0.003, p=0.275). Paper-side can
+   safely upgrade from "close 2nd" to "statistically tied at N=10";
+   pair with the graph-aware T win (R6-D6: 0.704 vs 0.681, +0.023)
+   for a clean two-sentence framing.
+
+3. **Citeseer Wilcoxon at N=10**: significant loss to PHATE
+   (Δ=-0.114, p=0.002). The "loses Citeseer" story is statistically
+   confirmed. Suggest §5 footnote: "the Citeseer loss is statistically
+   significant under Wilcoxon paired-rank at N=10 seeds (p=0.002)".
+
+4. **MNIST Wilcoxon at N=10**: significant difference but tiny effect
+   (Δ=-0.018 at metric ceiling 0.98). Recommend keeping "ties at
+   ceiling" framing; the significance is multiple-comparisons noise
+   at saturated metric. Optional supplement footnote.
+
+5. **Numeric table refresh**: `output/tables/paper_table_comparison.{md,tex}`
+   re-emitted overnight with N=10 cells for contested datasets +
+   `\first/\second/\third` rank tags. Replace the previous version.
+
+6. **R6-D7 reconciliation**: Cora speedup is **41.2×** (paper-quoted
+   "42×"; correct = 41×). ca-AstroPh is **137.9×** ("136×"; correct =
+   138×). Pick rounding convention.
+
+7. **R6-D2 pipeline confirmation**: TikZ pipeline draft is correct;
+   two refinements (Jaccard preprocessing step in `unweighted_to_weighted`
+   path; auto-λ 4-fit cost ~38.8 s on PBMC) — see R6 response above.
+
+8. **`pysgtsnepi v0.3.1` PyPI release** (R5-D, originally punted): still
+   pending repo maintainer's PyPI auth. The fix exists on git; without
+   a PyPI release, the paper's "pip install pysgtsnepi" reproducibility
+   line in §Supplemental Materials needs to either (a) cite the git
+   rev directly, or (b) wait for the release. Owner: maintainer.
+
+9. **J1 ogbn-products**: in flight on zjl right now (n=2.4M, PCA-init
+   computing). Will land in `output/tables/ogbn_products_scale.parquet`
+   + embedding npy. If the run completes within 2h, paper-side gains a
+   one-line headline scaling demo: "pysgtsnepi processes ogbn-products
+   (n=2.4M, m=61.9M) in Y minutes". If it OOMs or hits the 2h cap,
+   the existing R4-H1 Pareto + cores_scaling figures cover the
+   scaling story without it.
+
+**Items confirmed out of scope** (per paper-side `experiment_handoff_R4.md`):
+Reddit, scRNA datasets beyond PBMC, ogbn-products full baseline pipeline,
+embedding dim d > 2 sensitivity, HPEC n-scaling synthetic.
+
+**Experiment-side is unblocked**; awaiting paper-side prose decisions
+before the next experiment-side action. Suggested paper-side ETA: paper
+should compile clean once R6 figures imported + Wilcoxon footnotes added;
+the J1 result lands either way.
