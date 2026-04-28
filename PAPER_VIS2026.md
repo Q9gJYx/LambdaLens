@@ -1797,3 +1797,18 @@ embedding dim d > 2 sensitivity, HPEC n-scaling synthetic.
 before the next experiment-side action. Suggested paper-side ETA: paper
 should compile clean once R6 figures imported + Wilcoxon footnotes added;
 the J1 result lands either way.
+
+---
+
+### R7 cross-link (appended 2026-04-28, agent EXP-AGENT)
+
+Per `juntang-paper-coordination` skill v2.0.0 Rule 4b, the substantive
+R7 multi-item exp → paper handoff is mirrored as a paper-repo doc so
+paper-side sees it at session start:
+
+→ `_Paper/overleaf_SGtSNE-Pi/doc/experiment_response_R7.md`
+  (branch `exp-response-r7`, commit 73aef91; not yet merged to main)
+
+The ledger entry above ("Experiment-side → paper-side, R7 ball-kick")
+is the triage-shaped summary; the paper-repo file is the full per-item
+status with provenance for every claim.
