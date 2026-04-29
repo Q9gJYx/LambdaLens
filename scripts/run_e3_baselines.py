@@ -41,19 +41,24 @@ CA_ASTROPH_PHATE_SUBSAMPLE_N = 3000
 DEFAULT_UNLABELED_LAMBDA = 10.0
 
 
-def _pca_init_path(out_root: Path, dataset: str) -> Path:
-    return out_root / "meta" / f"pca_init_y0_{dataset}.npy"
+def _pca_init_path(out_root: Path, dataset: str, seed: int) -> Path:
+    return out_root / "meta" / f"pca_init_y0_{dataset}_seed{seed}.npy"
 
 
-def _ensure_pca_init(out_root: Path, dataset: str) -> np.ndarray:
-    """Cache pca_init Y0 once per dataset; return loaded array."""
-    p = _pca_init_path(out_root, dataset)
+def _ensure_pca_init(out_root: Path, dataset: str, seed: int, adj: sp.csr_matrix | None = None) -> np.ndarray:
+    """Cache pca_init Y0 per (dataset, seed); return loaded array.
+
+    Why per-seed: pca_init's randomized eigensolver depends on random_state,
+    so a single cached Y0 makes all baselines that consume Y0 ignore seed.
+    """
+    p = _pca_init_path(out_root, dataset, seed)
     if p.exists():
         return np.load(p)
-    from lens.data import load_dataset
     from lens.init import pca_init
-    adj, _, _ = load_dataset(dataset)
-    Y0 = pca_init(adj, d=2, scale=1e-4, random_state=42)
+    if adj is None:
+        from lens.data import load_dataset
+        adj, _, _ = load_dataset(dataset)
+    Y0 = pca_init(adj, d=2, scale=1e-4, random_state=seed)
     p.parent.mkdir(parents=True, exist_ok=True)
     np.save(p, Y0)
     return Y0
@@ -217,8 +222,7 @@ def _worker(dataset: str, method: str, seed: int, lam: float, out_root_str: str,
     from lens.metrics import compute_metrics
     adj, features, labels = load_dataset(dataset)
 
-    Y0_path = _pca_init_path(out_root, dataset)
-    Y0 = np.load(Y0_path)
+    Y0 = _ensure_pca_init(out_root, dataset, seed, adj=adj)
 
     if method == "pysgtsnepi":
         Y, t, info = _run_pysgtsnepi(adj, lam, dataset, seed, Y0)
@@ -294,9 +298,7 @@ def main() -> int:
     auto = _read_auto_lambdas(out_root)
     print(f"[e3] auto-lambdas (labeled): {auto}", flush=True)
 
-    for ds in args.datasets:
-        Y0 = _ensure_pca_init(out_root, ds)
-        print(f"[e3] {ds}: cached PCA init Y0 shape={Y0.shape}", flush=True)
+    # Y0 is now computed per (dataset, seed) inside the worker.
 
     cells: list[tuple[str, str, int, float]] = []
     for ds in args.datasets:
