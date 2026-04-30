@@ -31,7 +31,7 @@ edit that pin without re-reading the comment.
 │   └── archive/             # one-off recovery utilities from rounds 2 and 3
 ├── data/
 │   ├── raw/, interim/, external/   # gitignored, populated by loaders
-│   └── processed/                  # PBMC graph + HDBSCAN labels (committed); planetoid loaders cache here
+│   └── processed/                  # PBMC graph + spectral-Agg labels (committed); planetoid loaders cache here
 ├── output/
 │   ├── embeddings/          # E1 / E1d cells, gitignored
 │   ├── embeddings_baselines/ # E3 cells, gitignored
@@ -84,7 +84,7 @@ Each one is resume-safe via per-cell parquets under
 | script | output |
 |---|---|
 | `run_p0_3a_pysgtsnepi.py` | pysgtsnepi multi-seed at auto-λ + PCA-init across the 5 R3 datasets |
-| `derive_pbmc_labels.py` | `data/processed/pbmc/labels.npy` (HDBSCAN on PCA-init λ=20 embedding; Zheng-2017 fallback) |
+| `derive_pbmc_labels.py` | `data/processed/pbmc/labels.npy` (Agglomerative-Ward k=7 on top-15 normalized-Laplacian eigenvectors of the input kNN graph; λ-independent) |
 | `run_p1_7_synth.py` | BA vs WS regime control: `output/figures/synthetic_regime_control.pdf` + `synthetic_regime_summary.json` |
 | `cv_d_summary.py` | `output/tables/cv_d_summary.json` (per-dataset CV(d), feeds [Pb] moment fit) |
 | `compute_placeholders.py` | `[Pa] [Pb] [Pc] [Pd]` in `output/tables/moment_fit.json` |
@@ -109,9 +109,16 @@ canonical pipeline does not depend on them. See
 | PBMC-8k | 8 381 | `pbmc-graph.tar.gz` from `fcdimitr/sgtsnepi`, committed under `data/processed/pbmc/` | `lens.data.load_pbmc` |
 | ogbn-arxiv | 169 343 | OGB | `lens.data.load_ogbn_arxiv` (R3 loader, pipeline pending) |
 
-PBMC labels are HDBSCAN-derived (Zheng-2017 not publicly mirrored; see
-`derive_pbmc_labels.py` for provenance and the round-3 escape-valve
-note). All other loaders fetch on demand and cache idempotently.
+PBMC labels are derived via Agglomerative-Ward k=7 on the top-15
+non-trivial eigenvectors of the symmetric normalized Laplacian of the
+input kNN graph (Ng-Jordan-Weiss row-normalization). This is
+λ-independent — clusters reflect graph topology rather than any
+particular embedding's geometry, so Label-T&C scored against these
+labels does not favor any specific λ by construction. Zheng-2017 PBMC-8k
+labels for the n=8381 fcdimitr split are not publicly mirrored; see
+`derive_pbmc_labels.py` and `data/processed/pbmc/labels_provenance.json`
+for full provenance. All other loaders fetch on demand and cache
+idempotently.
 
 ## Project state
 

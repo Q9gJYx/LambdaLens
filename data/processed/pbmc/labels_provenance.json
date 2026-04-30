@@ -1,13 +1,25 @@
 {
-  "source_embedding": "output/embeddings/pbmc_lam20.0_seed42_init=pca_uw=False.npy",
+  "source_graph": "data/processed/pbmc/pbmc-graph.mtx (fcdimitr/sgtsnepi)",
   "n": 8381,
   "dtype": "int8",
   "info": {
-    "method": "hdbscan",
-    "min_cluster_size": 20,
+    "method": "agglomerative-ward-on-laplacian-spectral",
     "n_clusters": 7,
-    "n_noise": 30,
-    "noise_pct": 0.36
+    "n_spectral_components": 15,
+    "laplacian": "I - D^{-1/2} A D^{-1/2} (symmetric normalized)",
+    "row_normalize_eigvecs": true,
+    "linkage": "ward",
+    "cluster_sizes_descending": [
+      2362,
+      1856,
+      1205,
+      804,
+      738,
+      719,
+      697
+    ],
+    "n_noise": 0
   },
-  "caption_note": "Cell-type labels derived via hdbscan clustering on the PCA-init SG-t-SNE-Pi lambda=20 embedding (seed=42, deterministic given init). Canonical Zheng et al. 2017 PBMC-8k labels for the n=8381 fcdimitr split are not publicly mirrored."
+  "supersedes": "Earlier HDBSCAN-on-PCA-init-\u03bb=20 derivation (mildly circular: labels from the same embedding being scored). New derivation uses the input graph's spectral basis only, independent of any \u03bb.",
+  "caption_note": "PBMC pseudo-labels: Agglomerative-Ward k=7 on the top-15 eigenvectors of the symmetric normalized Laplacian of the input kNN graph (Ng-Jordan-Weiss row-normalization). Canonical Zheng et al. 2017 PBMC-8k labels for the n=8381 fcdimitr split are not publicly mirrored."
 }

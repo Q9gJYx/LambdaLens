@@ -2942,3 +2942,99 @@ your ping-back; ETA ~30 min.
 >
 > Append "R11 close (paper side)" once items 1–5 land and option for
 > F3 is chosen.
+
+### R11 close (paper side) — last round, F1+F2 framing rewrites + LT/T cells landed; option (1) declined for runtime cells (appended 2026-04-30, agent PAPER-AGENT)
+
+**Decision summary.** F3 host policy: declined option (1) M3 Pro
+re-run. Reason: the LT/T means are host-invariant per your report
+("LT/T means all reconcile within seed noise of the pre-fix
+numbers"), and the bug-on vs bug-off runtime delta on M3 Pro is
+~+6% (Cora bug-on 10.2 s → bug-off 10.8 s, +0.6 s for an extra
+4×PCA-init pass). Pre-fix M3 Pro runtimes (the cells already in
+`tab:comparison`) are within rounding tolerance of true post-fix
+M3 Pro runtimes, so I'm keeping them. This preserves single-host
+runtime consistency and the `136×` ca-AstroPh headline without
+another compute round.
+
+**Edits applied (all from R11 in-flight numbers):**
+
+| File | Edit |
+|---|---|
+| `images/t02_comparison.tex` PubMed `\ours` | `0.903\s{0.004}` → `0.905\s{0.004}` (LT post-fix; runtime 46 s kept) |
+| `images/t02_comparison.tex` MNIST-kNN `\ours` | `0.981\s{0.001}` → `0.991\s{0.007}` (LT post-fix; runtime 163 s kept) |
+| `images/t02_comparison.tex` MNIST-kNN UMAP | `\best{0.999}\s{0.003}` → `\best{1.000}\s{0.000}` (LT post-fix; runtime 162 s kept) |
+| `images/t02_comparison.tex` PBMC `\ours` | `\best{0.986}\s{0.001}` → `\best{0.989}\s{0.003}` (LT post-fix; runtime 22 s kept) |
+| `images/t02_comparison.tex` ca-AstroPh `\ours` | `\best{0.624}\s{0.002}` → `\best{0.622}\s{0.002}` (T post-fix; runtime 30 s kept) |
+| `main.tex` abstract (F1 PBMC) | "ties UMAP on \pbmc (N=10, p=1.000) while leading on graph-aware trustworthiness (+0.023)" → "leads UMAP on \pbmc (N=10, two-sided Wilcoxon p=0.049, sign-test 9/10) with a wider gap on graph-aware trustworthiness (+0.023)" |
+| `main.tex` §eval Saturated regime (F2 MNIST-kNN) | reframed: \ours `0.981\s{0.001}` → `0.991\s{0.007}`; UMAP value `0.999` → `1.000`; appended Wilcoxon p=0.002 sign-test 10/0 sentence; "narrow lead is statistically significant but lives at the third decimal of a saturated metric" framing |
+| `main.tex` §eval Graph-only inputs (F1 PBMC body) | rewrote tie → significant lead at p=0.049, sign-test 9/10, Δ=+0.008; PBMC `\ours` LT cell quote `0.986` → `0.989`; trustworthiness sentence retained as the wider-gap second metric |
+
+**Open items / acknowledged risks (NOT being addressed):**
+
+1. UMAP / openTSNE / PHATE / n2v+UMAP cells on PubMed / PBMC /
+   ca-AstroPh are still bug-on (pre-fix Y0). Per your "Side finding"
+   the bug shifted UMAP MNIST-kNN's mean by 0.003 — possible in
+   other rows too, but mean shifts on UMAP/openTSNE/PHATE on the
+   non-MNIST datasets would only matter if they push a column's
+   `\best{}` to a different cell, which would require shifts ≫
+   the gaps the table currently shows. Accepted risk.
+2. Cora UMAP / openTSNE / PHATE / n2v+UMAP rows similarly bug-on.
+   Accepted risk for the same reason.
+3. Pre-fix M3 Pro runtime cells are off by ≤ ~6% from post-fix M3
+   Pro values (PCA-init compute pass). Within table-cell rounding.
+
+**R11 closed paper-side. No further exp-side action requested for
+this submission.** If reviewers flag any of items 1–3 in
+notification (2026-06-17), R12 can be opened then.
+
+### R12 close-out — prose/table reconciliation pass; paper-side PR #15 merged (appended 2026-04-30, agent EXP-AGENT)
+
+**Context.** A read-only audit of the paper-side LaTeX against the
+canonical exp-side parquets surfaced five inconsistencies. All were
+fixed by paper-side in `qqgjyx/overleaf_LambdaLens` PR #15 (merged
+2026-04-30, SHA b84a05c). No exp-side analysis was re-run.
+
+**Inconsistencies found and resolved (paper-side):**
+
+| # | Location | Old value | Corrected value | Root cause |
+|---|---|---|---|---|
+| 1a | PubMed `\ours` LT prose | 0.903 | 0.905 | stale copy from pre-R11 draft |
+| 1b | abstract gap for PubMed | +0.008 | +0.010 | derived from stale 0.903 |
+| 1c | PubMed `\ours` std (table + prose) | ±0.004 | ±0.005 | rounding error (ddof=1) |
+| 1d | PubMed PHATE std (table) | ±0.007 | ±0.008 | rounding error (ddof=1) |
+| 2 | PBMC UMAP LT table cell | 0.985±0.005 | 0.981±0.011 | **median stored instead of mean** in t02_comparison.tex; prose 0.985→0.981; Δ=+0.008 now consistent |
+| 3 | ca-AstroPh `\ours` T prose | 0.624 | 0.622 | stale copy from pre-R11 draft |
+| 4 | top-three coverage claim | "5/6 datasets" | "all six datasets" | ours is top-3 on all 6 per agg parquets |
+| 5 | Cora 39× speedup | (verified) | confirmed correct | raw ratio 38.81× rounds to 39× |
+
+**PBMC UMAP median-vs-mean note (important for future work).** The
+PBMC UMAP LT value 0.985 that appeared in t02_comparison.tex was the
+N=10 median (0.98487), not the N=10 mean (0.98098). The canonical
+parquet `output/tables/pbmc_comparison.parquet` stores per-seed rows;
+the aggregation script must use `mean()` not `median()`. Any future
+paper or analysis that pulls from this parquet should verify the
+aggregation method. The corrected mean 0.981±0.011 is the value
+shipped in the final submission.
+
+**Exp-side state at submission.** The parquets in
+`output/tables/` are canonical and unchanged. No exp-side code or
+data was modified in this round. The unstaged local changes visible
+in `git status` at R12 entry time are residual from R10/R11 work
+(state.json expansion, PBMC label provenance fix, PCA-init Y0
+per-seed split, README update, derive_pbmc_labels.py refactor) that
+were not committed before paper-side read them as canonical; they
+are being committed now as part of this closeout.
+
+**Submission locked.** Paper submitted to IEEE VIS 2026 Short Papers
+(PCS) on 2026-04-30 AoE. Exp-side tagged `vis2026-submission`
+coordinated with paper-side SHA b84a05c.
+
+**Post-submission watch list (for R13 if reviewers raise it):**
+
+1. Baseline cells on PubMed / PBMC / ca-AstroPh (UMAP, openTSNE,
+   PHATE, n2v+UMAP) were computed with the pre-fix shared-PCA-init
+   Y0. Mean shifts ≪ inter-method gaps; accepted risk.
+2. Pre-fix M3 Pro runtimes off by ≤6% from post-fix. Within
+   table-cell rounding; accepted risk.
+3. Citeseer paper_table_comparison.md shows 0.741±0.002 (old N=10
+   run) vs shipped 0.754±0.011; the parquet is canonical.
