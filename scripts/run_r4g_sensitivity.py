@@ -49,9 +49,10 @@ def _run_sgtsne_u(adj, Y0, lam, u, seed):
 
 
 def _run_sgtsne_alpha(adj, Y0, lam, alpha, seed):
+    """G6: early-exaggeration multiplier (alpha kwarg, default 12.0)."""
     from pysgtsnepi import sgtsnepi
     return sgtsnepi(adj, d=2, lambda_=lam, random_state=seed, Y0=Y0,
-                    early_exag=alpha)
+                    alpha=float(alpha))
 
 
 def _g2_worker(ds, perplexity, seed, out_root):

@@ -37,22 +37,28 @@ NODE2VEC_SINGLE_SEED = {"pbmc", "ca_astroph", "pubmed"}
 NODE2VEC_SKIP = {"mnist_knn", "ogbn_arxiv"}
 PHATE_SUBSAMPLE_DATASETS = {"mnist_knn", "ca_astroph", "ogbn_arxiv"}
 DEFAULT_PHATE_SUBSAMPLE_N = 10000
+CA_ASTROPH_PHATE_SUBSAMPLE_N = 3000
 DEFAULT_UNLABELED_LAMBDA = 10.0
 
 
-def _pca_init_path(out_root: Path, dataset: str) -> Path:
-    return out_root / "meta" / f"pca_init_y0_{dataset}.npy"
+def _pca_init_path(out_root: Path, dataset: str, seed: int) -> Path:
+    return out_root / "meta" / f"pca_init_y0_{dataset}_seed{seed}.npy"
 
 
-def _ensure_pca_init(out_root: Path, dataset: str) -> np.ndarray:
-    """Cache pca_init Y0 once per dataset; return loaded array."""
-    p = _pca_init_path(out_root, dataset)
+def _ensure_pca_init(out_root: Path, dataset: str, seed: int, adj: sp.csr_matrix | None = None) -> np.ndarray:
+    """Cache pca_init Y0 per (dataset, seed); return loaded array.
+
+    Why per-seed: pca_init's randomized eigensolver depends on random_state,
+    so a single cached Y0 makes all baselines that consume Y0 ignore seed.
+    """
+    p = _pca_init_path(out_root, dataset, seed)
     if p.exists():
         return np.load(p)
-    from lens.data import load_dataset
     from lens.init import pca_init
-    adj, _, _ = load_dataset(dataset)
-    Y0 = pca_init(adj, d=2, scale=1e-4, random_state=42)
+    if adj is None:
+        from lens.data import load_dataset
+        adj, _, _ = load_dataset(dataset)
+    Y0 = pca_init(adj, d=2, scale=1e-4, random_state=seed)
     p.parent.mkdir(parents=True, exist_ok=True)
     np.save(p, Y0)
     return Y0
@@ -110,33 +116,64 @@ def _run_opentsne(adj: sp.csr_matrix, features: np.ndarray | None, seed: int, Y0
     return np.asarray(emb), time.perf_counter() - t0, info
 
 
+def _phate_precomputed_affinity(
+    adj: sp.csr_matrix,
+    seed: int,
+    dataset: str,
+    subsample_n: int,
+) -> tuple[np.ndarray, np.ndarray | None, dict]:
+    """Prepare a dense PHATE affinity matrix and optional metric-alignment index."""
+    from scipy.sparse.csgraph import connected_components
+
+    info: dict = {"input_format": "precomputed_affinity(adj)"}
+    metric_idx = None
+    work = adj
+
+    if dataset in PHATE_SUBSAMPLE_DATASETS and adj.shape[0] > subsample_n:
+        n_sample = min(subsample_n, CA_ASTROPH_PHATE_SUBSAMPLE_N) if dataset == "ca_astroph" else subsample_n
+        rng = np.random.default_rng(seed)
+        metric_idx = np.sort(rng.choice(adj.shape[0], size=n_sample, replace=False))
+        work = adj[metric_idx][:, metric_idx]
+        info["subsampled_to"] = int(n_sample)
+
+    sym = ((work + work.T) * 0.5).tocsr().astype(np.float32)
+    n_components, labels = connected_components((sym > 0).astype(np.uint8), directed=False)
+    dense = np.nan_to_num(sym.toarray(), nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+    dense = np.maximum(dense, dense.T)
+    np.fill_diagonal(dense, 0.0)
+
+    if n_components > 1:
+        # PHATE's precomputed-affinity path can produce NaNs for disconnected
+        # graphs. Add deterministic, top-k-visible bridges between components;
+        # this is only a numerical scaffold for the baseline embedding.
+        component_anchor = int(np.flatnonzero(labels == labels[0])[0])
+        for c in range(n_components):
+            rep = int(np.flatnonzero(labels == c)[0])
+            if rep != component_anchor:
+                dense[component_anchor, rep] = dense[rep, component_anchor] = 1.0
+        info["component_bridge_count"] = int(n_components - 1)
+
+    np.fill_diagonal(dense, 1.0)
+    return dense, metric_idx, info
+
+
 def _run_phate(adj: sp.csr_matrix, features: np.ndarray | None, seed: int, dataset: str, subsample_n: int) -> tuple[np.ndarray, float, dict]:
     import phate
     info: dict = {"init": "phate_internal_pca"}
     t0 = time.perf_counter()
     if features is None:
-        # graph-only: pass adj as precomputed affinity
-        info["input_format"] = "precomputed_affinity(adj)"
-        if dataset in PHATE_SUBSAMPLE_DATASETS and adj.shape[0] > subsample_n:
-            rng = np.random.default_rng(seed)
-            idx = np.sort(rng.choice(adj.shape[0], size=subsample_n, replace=False))
-            sub = adj[idx][:, idx].toarray()
-            info["subsampled_to"] = int(subsample_n)
-            op = phate.PHATE(n_components=2, knn_dist="precomputed_affinity",
-                             random_state=seed, n_jobs=-1, knn=15, verbose=0)
-            Y = op.fit_transform(sub)
-        else:
-            dense = adj.toarray()
-            # Ensure no zero-row affinities (disconnected nodes) which cause NaN
-            # in PHATE's diffusion operator. Add a tiny self-loop to isolated rows.
-            row_sums = dense.sum(axis=1)
-            isolated = row_sums == 0
-            if isolated.any():
-                dense[isolated, :] = 0.0
-                dense[np.where(isolated)[0], np.where(isolated)[0]] = 1e-8
-            op = phate.PHATE(n_components=2, knn_dist="precomputed_affinity",
-                             random_state=seed, n_jobs=-1, knn=15, verbose=0)
-            Y = op.fit_transform(dense)
+        dense, metric_idx, aff_info = _phate_precomputed_affinity(adj, seed, dataset, subsample_n)
+        info.update(aff_info)
+        if metric_idx is not None:
+            info["_metric_idx"] = metric_idx
+        extra = {"t": 1, "n_landmark": None} if dataset == "ca_astroph" else {}
+        if extra:
+            info["diffusion_t"] = extra["t"]
+            info["n_landmark"] = -1
+        op = phate.PHATE(n_components=2, knn_dist="precomputed_affinity",
+                         random_state=seed, n_jobs=-1, knn=15, verbose=0,
+                         **extra)
+        Y = op.fit_transform(dense)
     else:
         info["input_format"] = "features"
         if dataset in PHATE_SUBSAMPLE_DATASETS and features.shape[0] > subsample_n:
@@ -144,6 +181,7 @@ def _run_phate(adj: sp.csr_matrix, features: np.ndarray | None, seed: int, datas
             idx = np.sort(rng.choice(features.shape[0], size=subsample_n, replace=False))
             sub = features[idx]
             info["subsampled_to"] = int(subsample_n)
+            info["_metric_idx"] = idx
             op = phate.PHATE(n_components=2, random_state=seed, n_jobs=-1, knn=15, verbose=0)
             Y = op.fit_transform(sub)
         else:
@@ -184,8 +222,7 @@ def _worker(dataset: str, method: str, seed: int, lam: float, out_root_str: str,
     from lens.metrics import compute_metrics
     adj, features, labels = load_dataset(dataset)
 
-    Y0_path = _pca_init_path(out_root, dataset)
-    Y0 = np.load(Y0_path)
+    Y0 = _ensure_pca_init(out_root, dataset, seed, adj=adj)
 
     if method == "pysgtsnepi":
         Y, t, info = _run_pysgtsnepi(adj, lam, dataset, seed, Y0)
@@ -200,9 +237,13 @@ def _worker(dataset: str, method: str, seed: int, lam: float, out_root_str: str,
     else:
         raise ValueError(f"unknown method {method}")
 
-    if "subsampled_to" in info and labels is not None:
-        metrics = {"trustworthiness": float("nan"), "continuity": float("nan"),
-                   "label_trustworthiness": float("nan"), "label_continuity": float("nan")}
+    metric_idx = info.pop("_metric_idx", None)
+    if metric_idx is not None:
+        metric_features = features[metric_idx] if features is not None else None
+        metric_adj = adj[metric_idx][:, metric_idx]
+        metric_labels = labels[metric_idx] if labels is not None else None
+        metrics = compute_metrics(features=metric_features, adj=metric_adj, Y=Y, labels=metric_labels,
+                                  max_n=5000, seed=seed)
     else:
         metrics = compute_metrics(features=features, adj=adj, Y=Y, labels=labels,
                                   max_n=5000, seed=seed)
@@ -214,7 +255,7 @@ def _worker(dataset: str, method: str, seed: int, lam: float, out_root_str: str,
         **metrics,
         "init_strategy": info.get("init", "default"),
         "iteration_count": info.get("iterations", info.get("n_epochs", info.get("n_iter", -1))),
-        **{f"info_{k}": v for k, v in info.items() if k not in ("init", "iterations", "n_epochs", "n_iter")},
+        **{f"info_{k}": v for k, v in info.items() if k not in ("init", "iterations", "n_epochs", "n_iter") and not k.startswith("_")},
     }
     cell = _cell_path(out_root, dataset, method, seed)
     cell.parent.mkdir(parents=True, exist_ok=True)
@@ -257,9 +298,7 @@ def main() -> int:
     auto = _read_auto_lambdas(out_root)
     print(f"[e3] auto-lambdas (labeled): {auto}", flush=True)
 
-    for ds in args.datasets:
-        Y0 = _ensure_pca_init(out_root, ds)
-        print(f"[e3] {ds}: cached PCA init Y0 shape={Y0.shape}", flush=True)
+    # Y0 is now computed per (dataset, seed) inside the worker.
 
     cells: list[tuple[str, str, int, float]] = []
     for ds in args.datasets:

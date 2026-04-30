@@ -33,11 +33,17 @@ def _agg_method(group: pd.DataFrame) -> dict:
             best3 = mean
         return mean, std, median, best3
 
+    iteration_count = -1
+    if "iteration_count" in group:
+        raw_iteration_count = group["iteration_count"].dropna()
+        if not raw_iteration_count.empty:
+            iteration_count = int(raw_iteration_count.iloc[0])
+
     out: dict = {
         "method": group["method"].iloc[0],
         "n_seeds": int(group["seed"].nunique()),
         "init_strategy": group["init_strategy"].iloc[0] if "init_strategy" in group else "default",
-        "iteration_count": int(group["iteration_count"].iloc[0]) if "iteration_count" in group else -1,
+        "iteration_count": iteration_count,
     }
     for col in ("label_trustworthiness", "label_continuity",
                 "trustworthiness", "continuity", "runtime_s"):

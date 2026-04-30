@@ -26,9 +26,18 @@ def _harmonic(lt: float, lc: float) -> float | None:
 
 
 def aggregate(cells_dir: Path, datasets: tuple[str, ...], uw_false: bool,
-              lambdas: tuple[float, ...], seeds: list[int]) -> dict:
+              lambdas: tuple[float, ...], seeds: list[int],
+              recompute: bool = False) -> dict:
+    """Aggregate per (ds, lambda) mean LT&C over seeds.
+
+    If recompute=True (graph-only datasets like PBMC), label_T&C is
+    recomputed from saved embeddings + adj + labels via
+    lens.metrics.compute_metrics for any cell with NaN metrics.
+    """
     suf = "_uw=False" if uw_false else ""
+    emb_dir = cells_dir.parent.parent / "embeddings"
     out: dict[str, dict] = {}
+    cached_ds: dict[str, tuple] = {}
     for ds in datasets:
         out[ds] = {}
         for lam in lambdas:
@@ -43,6 +52,19 @@ def aggregate(cells_dir: Path, datasets: tuple[str, ...], uw_false: bool,
                 r = df.iloc[0]
                 lt = float(r.get("label_trustworthiness", float("nan")))
                 lc = float(r.get("label_continuity", float("nan")))
+                if recompute and np.isnan(lt) and np.isnan(lc):
+                    emb_path = emb_dir / f"{ds}_lam{lam}_seed{seed}_init=pca{suf}.npy"
+                    if emb_path.exists():
+                        Y = np.load(str(emb_path))
+                        if ds not in cached_ds:
+                            from lens.data import load_dataset
+                            cached_ds[ds] = load_dataset(ds)
+                        adj, features, labels = cached_ds[ds]
+                        from lens.metrics import compute_metrics
+                        m = compute_metrics(features=features, adj=adj, Y=Y,
+                                            labels=labels, max_n=2000, seed=seed)
+                        lt = float(m.get("label_trustworthiness", float("nan")))
+                        lc = float(m.get("label_continuity", float("nan")))
                 rows.append((lt, lc))
             if not rows:
                 out[ds][str(lam)] = None
@@ -71,9 +93,9 @@ def main() -> int:
     cells_dir = Path(args.out_root) / "tables" / "cells"
     result = {}
     result.update(aggregate(cells_dir, DATASETS_UW, uw_false=False,
-                            lambdas=LAMBDAS, seeds=args.seeds))
+                            lambdas=LAMBDAS, seeds=args.seeds, recompute=False))
     result.update(aggregate(cells_dir, DATASETS_UWFALSE, uw_false=True,
-                            lambdas=LAMBDAS, seeds=args.seeds))
+                            lambdas=LAMBDAS, seeds=args.seeds, recompute=True))
 
     out_path = Path(args.out_root) / "tables" / "teaser_lens_inset_means.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)

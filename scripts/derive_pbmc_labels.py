@@ -1,19 +1,24 @@
-"""P0-2: derive PBMC cell-type labels.
+"""Derive PBMC cell-type pseudo-labels for the n=8381 fcdimitr split.
 
-The pbmc-graph.tar.gz from fcdimitr/sgtsnepi ships only the stochastic kNN
-graph (k=30); no expression vectors and no labels. The canonical Zheng
-et al. 2017 PBMC-8k cell-type assignments for the n=8381 split are not
-publicly mirrored. Per round-3 spec escape valve: "If Zheng-2017 PBMC labels
-are not directly available, HDBSCAN-derive at PCA-init lambda=20 is the
-fallback. Acknowledge in caption."
+The pbmc-graph.tar.gz from fcdimitr/sgtsnepi ships only the stochastic
+kNN graph (k=30); no expression vectors and no labels. The canonical
+Zheng et al. 2017 PBMC-8k cell-type assignments for this exact n=8381
+split are not publicly mirrored.
 
-We HDBSCAN on the cached deterministic PCA-init lambda=20 SG-t-SNE-Pi
-embedding (auto-lambda choice for PBMC); target 8-12 clusters (canonical
-PBMC-8k has ~10 cell types). Falls back to KMeans(k=10) if HDBSCAN gives
-something pathological.
+**Method (λ-independent):** Agglomerative-Ward k=7 on the top-15
+non-trivial eigenvectors of the symmetric normalized Laplacian
+L_sym = I - D^{-1/2} A D^{-1/2}, row-normalized
+(Ng-Jordan-Weiss convention). This is the standard graph-spectral
+clustering basis used by Seurat/scanpy pipelines and is independent
+of any single λ embedding, so Label-T&C scored against these labels
+does not favor any particular λ by construction.
+
+Replaces the earlier HDBSCAN-on-PCA-init-λ=20 derivation, which was
+partially circular (labels defined by the embedding being scored)
+and produced a single mega-cluster swallowing ~half the cells.
 
 Output: data/processed/pbmc/labels.npy (int8, shape (8381,)).
-Provenance written to: data/processed/pbmc/labels_provenance.json.
+Provenance: data/processed/pbmc/labels_provenance.json.
 """
 from __future__ import annotations
 
@@ -21,83 +26,90 @@ import json
 from pathlib import Path
 
 import numpy as np
+import scipy.sparse as sp
+from scipy.sparse.linalg import eigsh
+from sklearn.cluster import AgglomerativeClustering
 
-EMB_PATH = Path("output/embeddings/pbmc_lam20.0_seed42_init=pca_uw=False.npy")
+from lens.data import load_pbmc
+
 LABELS_OUT = Path("data/processed/pbmc/labels.npy")
 PROV_OUT = Path("data/processed/pbmc/labels_provenance.json")
+N_CLUSTERS = 7
+N_COMPONENTS = 15
 
 
-def _hdbscan_label(Y: np.ndarray, min_cluster_size: int) -> tuple[np.ndarray, dict]:
-    import hdbscan
-    clusterer = hdbscan.HDBSCAN(
-        min_cluster_size=min_cluster_size,
-        min_samples=10,
-        cluster_selection_method="eom",
-    )
-    raw = clusterer.fit_predict(Y)
-    nz = raw[raw >= 0]
-    n_clusters = int(nz.max()) + 1 if nz.size else 0
-    n_noise = int((raw == -1).sum())
-    info = {
-        "method": "hdbscan",
-        "min_cluster_size": min_cluster_size,
-        "n_clusters": n_clusters,
-        "n_noise": n_noise,
-        "noise_pct": round(100 * n_noise / raw.size, 2),
-    }
-    return raw, info
+def _laplacian_spectral_embedding(adj, n_components: int) -> np.ndarray:
+    A = ((adj + adj.T) / 2.0).tocsr()
+    A.setdiag(0)
+    A.eliminate_zeros()
+    deg = np.asarray(A.sum(axis=1)).ravel()
+    deg_inv_sqrt = 1.0 / np.sqrt(np.maximum(deg, 1e-12))
+    D = sp.diags(deg_inv_sqrt)
+    L = sp.eye(A.shape[0], format="csr") - D @ A @ D
+    vals, vecs = eigsh(L.astype(np.float64), k=n_components + 1,
+                       sigma=0, which="LM")
+    order = np.argsort(vals)
+    vecs = vecs[:, order][:, 1:n_components + 1]
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    return vecs / np.maximum(norms, 1e-12)
 
 
-def _kmeans_fallback(Y: np.ndarray, k: int = 10) -> tuple[np.ndarray, dict]:
-    from sklearn.cluster import KMeans
-    km = KMeans(n_clusters=k, n_init=10, random_state=42)
-    raw = km.fit_predict(Y)
-    return raw, {"method": "kmeans_fallback", "k": k, "n_clusters": k, "n_noise": 0}
+def _relabel_by_size(y: np.ndarray) -> np.ndarray:
+    uniq, counts = np.unique(y, return_counts=True)
+    order = uniq[np.argsort(-counts)]
+    remap = {old: new for new, old in enumerate(order)}
+    out = y.copy()
+    for old, new in remap.items():
+        out[y == old] = new
+    return out
 
 
 def main() -> int:
-    Y = np.load(EMB_PATH)
-    print(f"[p0-2] loaded embedding: {Y.shape}", flush=True)
-
-    labels, info = _hdbscan_label(Y, min_cluster_size=20)
-    print(f"[p0-2] hdbscan(mcs=20): clusters={info['n_clusters']} noise={info['noise_pct']}%", flush=True)
-
-    if not (5 <= info["n_clusters"] <= 20):
-        for mcs in (50, 30, 100, 75):
-            labels, info = _hdbscan_label(Y, min_cluster_size=mcs)
-            print(f"[p0-2] hdbscan(mcs={mcs}): clusters={info['n_clusters']} noise={info['noise_pct']}%", flush=True)
-            if 5 <= info["n_clusters"] <= 20:
-                break
-
-    if not (5 <= info["n_clusters"] <= 20):
-        labels, info = _kmeans_fallback(Y, k=10)
-        print(f"[p0-2] fell back to kmeans(k=10): clusters={info['n_clusters']}", flush=True)
-
-    if labels.dtype != np.int8:
-        max_lbl = int(labels.max()) if labels.size else 0
-        if max_lbl < 127:
-            labels = labels.astype(np.int8)
-        else:
-            labels = labels.astype(np.int32)
-
     LABELS_OUT.parent.mkdir(parents=True, exist_ok=True)
-    np.save(LABELS_OUT, labels)
-    with open(PROV_OUT, "w") as f:
-        json.dump({
-            "source_embedding": str(EMB_PATH),
-            "n": int(labels.size),
-            "dtype": str(labels.dtype),
-            "info": info,
-            "caption_note": (
-                f"Cell-type labels derived via {info['method']} clustering on the "
-                f"PCA-init SG-t-SNE-Pi lambda=20 embedding "
-                f"(seed=42, deterministic given init). Canonical Zheng et al. 2017 "
-                f"PBMC-8k labels for the n={int(labels.size)} fcdimitr split are not "
-                f"publicly mirrored."
-            ),
-        }, f, indent=2)
-    print(f"[p0-2] wrote {LABELS_OUT} (n={labels.size}, dtype={labels.dtype}, "
-          f"unique={len(np.unique(labels))}, noise={int((labels == -1).sum())})", flush=True)
+    adj, _, _ = load_pbmc()
+    print(f"[pbmc-labels] loaded graph: n={adj.shape[0]}", flush=True)
+
+    print(f"[pbmc-labels] computing top-{N_COMPONENTS} Laplacian eigvecs ...", flush=True)
+    Z = _laplacian_spectral_embedding(adj, n_components=N_COMPONENTS)
+
+    print(f"[pbmc-labels] Agglomerative-Ward k={N_CLUSTERS} on spectral basis", flush=True)
+    y = AgglomerativeClustering(n_clusters=N_CLUSTERS, linkage="ward").fit_predict(Z)
+    y = _relabel_by_size(y).astype(np.int8)
+    np.save(LABELS_OUT, y)
+
+    sizes = [int((y == c).sum()) for c in range(N_CLUSTERS)]
+    info = {
+        "method": "agglomerative-ward-on-laplacian-spectral",
+        "n_clusters": N_CLUSTERS,
+        "n_spectral_components": N_COMPONENTS,
+        "laplacian": "I - D^{-1/2} A D^{-1/2} (symmetric normalized)",
+        "row_normalize_eigvecs": True,
+        "linkage": "ward",
+        "cluster_sizes_descending": sizes,
+        "n_noise": 0,
+    }
+    PROV_OUT.write_text(json.dumps({
+        "source_graph": "data/processed/pbmc/pbmc-graph.mtx (fcdimitr/sgtsnepi)",
+        "n": int(y.size),
+        "dtype": str(y.dtype),
+        "info": info,
+        "supersedes": (
+            "Earlier HDBSCAN-on-PCA-init-λ=20 derivation (mildly circular: "
+            "labels from the same embedding being scored). New derivation uses "
+            "the input graph's spectral basis only, independent of any λ."
+        ),
+        "caption_note": (
+            "PBMC pseudo-labels: Agglomerative-Ward k=7 on the top-15 "
+            "eigenvectors of the symmetric normalized Laplacian of the input "
+            "kNN graph (Ng-Jordan-Weiss row-normalization). Canonical Zheng "
+            f"et al. 2017 PBMC-8k labels for the n={int(y.size)} fcdimitr "
+            "split are not publicly mirrored."
+        ),
+    }, indent=2))
+    print(
+        f"[pbmc-labels] wrote {LABELS_OUT} (n={y.size}, dtype={y.dtype}, sizes={sizes})",
+        flush=True,
+    )
     return 0
 
 

@@ -278,10 +278,24 @@ def load_ogbn_arxiv(
     Uses ogb.nodeproppred.NodePropPredDataset (CSR sparse adj construction).
     """
     from ogb.nodeproppred import NodePropPredDataset
+    import torch
 
     cache = Path(cache_dir) / "ogbn_arxiv"
     cache.mkdir(parents=True, exist_ok=True)
-    ds = NodePropPredDataset(name="ogbn-arxiv", root=str(cache))
+    torch_load = torch.load
+
+    def _torch_load_ogb_compat(*args, **kwargs):
+        # OGB's processed cache uses pickle payloads that PyTorch >=2.6 rejects
+        # under the new weights_only=True default. These files are generated
+        # locally from the trusted OGB release, so opt into the old behavior here.
+        kwargs.setdefault("weights_only", False)
+        return torch_load(*args, **kwargs)
+
+    torch.load = _torch_load_ogb_compat
+    try:
+        ds = NodePropPredDataset(name="ogbn-arxiv", root=str(cache))
+    finally:
+        torch.load = torch_load
     graph, labels = ds[0]
     n = int(graph["num_nodes"])
     edge_index = graph["edge_index"]
