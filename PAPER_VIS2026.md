@@ -2710,3 +2710,235 @@ covered this).
 >    Ping back if you want me to run them.
 >
 > Append "R10½ close (paper side)" once items 1–2 land.
+
+### R10½ close (paper side) — citeseer landed + R11 ball: refresh remaining `\ours` cells (appended 2026-04-29, agent PAPER-AGENT)
+
+**Citeseer edits applied (R10½ landed paper-side):**
+
+| File | Edit |
+|---|---|
+| `images/t02_comparison.tex` Citeseer `\ours` cell | `0.741\s{0.002} & 23` → `0.754\s{0.011} & 8` |
+| `main.tex:412–419` (Honest-loss paragraph) | gap `0.114` → `0.101`; `\ours at 0.741` → `\ours at 0.754`; appended "sign-test unanimous" qualifier next to `p=0.002` since the post-fix Wilcoxon is on genuine variance |
+
+**Belt-and-suspenders refresh requested for the remaining four cells.**
+
+> **Prompt for the receiving experiment-side agent (R11):**
+>
+> Per your R10½ note, the four other `tab:comparison` `\ours` cells
+> (PubMed, MNIST-kNN, PBMC, ca-AstroPh) came from the same
+> shared-PCA bug — bug present, stochastic-masked. Two of them carry
+> claims that *structurally require* per-seed variance, so the
+> belt-and-suspenders refresh is not optional for them:
+>
+> 1. **PBMC** — abstract: "ties UMAP on \pbmc (N=10, p=1.000)" plus
+>    "leading on graph-aware trustworthiness (+0.023)". The Wilcoxon
+>    p=1.000 against UMAP is computed on bug-tainted `\ours` samples;
+>    the test is structurally invalid even if the headline number
+>    happens to be benign. **Must refresh** (priority A).
+> 2. **MNIST-kNN** — abstract / §eval: "saturated regime" framing,
+>    `\ours` reported third at `0.981\s{0.001}` behind UMAP and
+>    openTSNE. The N=10 was added on this dataset for the Wilcoxon
+>    sanity-check too — same structural problem. **Must refresh**
+>    (priority A).
+> 3. **PubMed (N=5)** — `\ours` cell `0.903\s{0.004} & 46` carries
+>    the abstract "+0.008 lift over PHATE at 2.6× slowdown" headline.
+>    No Wilcoxon, but the cell value is a headline number. **Refresh**
+>    (priority B).
+> 4. **ca-AstroPh (N=5)** — `\ours` cell `0.624\s{0.002} & 30`. The
+>    `136×` headline is canonically the round-3 4083 s `workers=1`
+>    n2v+UMAP baseline divided by `\ours` runtime; if `\ours` runtime
+>    shifts on refresh, the speedup recomputes. **Refresh**
+>    (priority B).
+>
+> Procedure (same as R10/R10½):
+> - Re-run `<dataset>/pysgtsnepi` with `--force` at the existing seeds
+>   (PBMC/MNIST-kNN: 42–51; PubMed/ca-AstroPh: 42–46), local M3 Pro,
+>   `OMP_NUM_THREADS=1`. Other-method baselines stay (they weren't
+>   bug-tainted).
+> - Re-merge each `<dataset>_comparison_agg.parquet`.
+> - For PBMC and MNIST-kNN only: re-run the Wilcoxon paired-rank
+>   `\ours` vs the runner-up listed in the abstract — UMAP for PBMC,
+>   UMAP for MNIST-kNN — at N=10. Report new p-values.
+> - Report new `\ours` LT/T mean ± std and runtime per dataset.
+>
+> If a Wilcoxon flips (PBMC ties → significant lead; MNIST-kNN
+> saturated → some method significant), flag prominently — paper-side
+> will rephrase the abstract.
+>
+> Append "R11 close" once done. Paper-side waits.
+
+### R11 close — PubMed / MNIST-kNN / PBMC / ca-AstroPh post-fix on zjl (appended 2026-04-30, agent EXP-AGENT)
+
+Refreshed `\ours` on all four datasets per-seed-PCA, on zjl (M3 Pro
+local was 27 min serial for MNIST-kNN alone; user requested zjl).
+Two flags: **(F1)** PBMC tie flips to significant — abstract must
+rewrite. **(F2)** Host shift: zjl runtimes are ~2–3× M3 Pro; paper-
+side must pick a runtime-host policy for `tab:comparison`.
+
+#### Post-fix `\ours` summary (host=zjl, OMP=1, per-seed PCA, --force)
+
+| dataset | seeds | LT (was) | LT (post-fix) | runtime (was M3 Pro) | runtime (zjl post-fix) |
+|---|---|---|---|---|---|
+| PubMed | 42–46 | 0.903 ± 0.004 | **0.9048 ± 0.0043** | 46 s | **117.5 ± 1.0 s** |
+| MNIST-kNN | 42–51 | 0.981 ± 0.001 | **0.9907 ± 0.0066** | 163 s | **238.1 ± 5.3 s** |
+| PBMC | 42–51 | 0.986 ± 0.001 | **0.9887 ± 0.0030** | 22 s | **30.9 ± 0.5 s** |
+| ca-AstroPh (T) | 42–46 | 0.624 ± 0.002 | **0.6224 ± 0.0024** | 30 s | **72.4 ± 0.9 s** |
+
+LT/T means all reconcile within seed noise of the pre-fix numbers.
+**Stds grew** on PBMC (0.001 → 0.003) and especially MNIST-kNN
+(0.001 → 0.007) — pre-fix near-zero std was the bug signature
+(fixed Y0 → near-deterministic optimization), now unmasked. This
+makes the Wilcoxon tests structurally valid for the first time.
+
+#### F1 — PBMC: tie flips to significant lead (priority A)
+
+Wilcoxon paired-rank `\ours` vs UMAP, N=10:
+
+| seed | ours | UMAP | Δ |
+|---|---|---|---|
+| 42 | 0.9904 | 0.9866 | +0.0038 |
+| 43 | 0.9890 | 0.9838 | +0.0052 |
+| 44 | 0.9901 | 0.9868 | +0.0033 |
+| **45** | **0.9799** | **0.9869** | **−0.0070** |
+| 46 | 0.9907 | 0.9859 | +0.0048 |
+| 47 | 0.9881 | 0.9849 | +0.0033 |
+| 48 | 0.9903 | 0.9560 | +0.0342 |
+| 49 | 0.9900 | 0.9873 | +0.0028 |
+| 50 | 0.9893 | 0.9662 | +0.0231 |
+| 51 | 0.9888 | 0.9855 | +0.0033 |
+
+Sign test: 9/10 favor `\ours` (only seed 45 reverses). Wilcoxon:
+- two-sided W = 8.0, **p = 0.0488**
+- alt=greater (ours > UMAP) **p = 0.0244**
+
+→ **Pre-fix paper claim "ties UMAP on \pbmc (N=10, p=1.000)" is
+incorrect on bug-free data. Post-fix: `\ours` significantly leads
+UMAP at p=0.049 (two-sided), Δ = +0.0077 LT.** Abstract / §eval must
+rewrite the PBMC framing from tie to significant lead.
+
+#### F2 — MNIST-kNN: saturated regime confirmed; UMAP wins significantly (priority A)
+
+Wilcoxon paired-rank `\ours` vs UMAP, N=10:
+
+| | mean | std |
+|---|---|---|
+| `\ours` | 0.9907 | 0.0066 |
+| UMAP    | **0.9999** | **0.0001** |
+
+Δ = −0.0093 (UMAP > `\ours`, sign test 10/0 unanimous). Wilcoxon:
+- two-sided W = 0.0, **p = 0.00195**
+- alt=less (ours < UMAP) **p = 0.00098**
+
+→ Pre-fix MNIST-kNN: `\ours` 0.981±0.001 vs UMAP 0.999±0.003 → tight
+gap with bug-suppressed std. Post-fix: gap is real and significant
+(p=0.002). Saturated-regime framing stands ("no method dominates" is
+not quite right anymore: UMAP statistically wins MNIST-kNN). Note
+UMAP's post-fix LT also moved (0.9973 → 0.9999, see §"Side finding"
+below).
+
+#### Side finding — UMAP on MNIST-kNN was also bug-affected
+
+Paper-side R10½ scoped baselines as "not bug-tainted" because their
+inner optimizers re-randomize per seed. That's true for *variance*
+but not for *mean quality*: UMAP on MNIST-kNN initialized with the
+buggy `random_state=42` Y0 gave LT 0.9973±0.0044 (n=5 zjl earlier);
+with per-seed-PCA Y0, LT jumps to 0.9999±0.0001 (n=10 zjl). The
+fixed-Y0 was systematically a slightly worse initialization for
+high-D MNIST-kNN, masking UMAP's true ceiling. So the bug **did**
+shift baseline means too — just not as obviously as `\ours`.
+
+Implication for paper hygiene: PubMed / PBMC / ca-AstroPh baseline
+cells (UMAP, openTSNE, PHATE, n2v+UMAP) come from the same buggy
+Y0. Their means may shift on refresh too. Cost to fully de-risk:
+~30 min compute for UMAP + openTSNE + PHATE on 3 datasets;
+n2v+UMAP would dominate (PBMC/PubMed multi-seed n2v+UMAP is hours).
+**Not run** — paper-side decides.
+
+#### F3 — Runtime host shift: paper-side must pick a policy
+
+| dataset | M3 Pro pre-fix | zjl post-fix | ratio |
+|---|---|---|---|
+| Cora       | 10.2 s | (not run on zjl) | — |
+| Citeseer   | 23 s   | (not run on zjl) | — |
+| PubMed     | 46 s   | 117.5 s | 2.6× slower |
+| MNIST-kNN  | 163 s  | 238.1 s | 1.5× slower |
+| PBMC       | 22 s   | 30.9 s  | 1.4× slower |
+| ca-AstroPh | 30 s   | 72.4 s  | 2.4× slower |
+
+The R10 close decision was "single-host consistency for
+`tab:comparison`", and Cora + Citeseer cells now reflect M3 Pro.
+If we ship zjl runtimes for the four R11 datasets, the table
+mixes hosts (and ca-AstroPh `136×` recomputes to `4083 / 72.4 = 56×`,
+breaking the headline). **Three options:**
+
+1. **Run R11 again on M3 Pro** for runtime-only consistency. ~30 min
+    wall (MNIST-kNN dominates ~27 min; rest are <5 min). I'd
+    re-run `pysgtsnepi` only at the same seeds with `--force` and
+    a separate parquet so this leg's quality numbers (which are
+    host-invariant) aren't disturbed. Recommended if you want a
+    clean single-host table without giving up the quality fix.
+2. **Re-run cora + citeseer on zjl** to make all six cells zjl-host.
+    ~5 min compute. Cora cell becomes ~`30 s` (R9 ablation showed
+    28.81 s on zjl), citeseer ~`8 → ~25 s` (zjl is slower).
+    Affects R10/R10½ headlines (39× → ~14×; honest-loss runtime
+    column). Not recommended — paper-side already integrated the
+    M3 Pro numbers.
+3. **Keep zjl runtimes here, annotate per-cell host in caption.**
+    Cheapest. `tab:comparison` caption gets one extra line:
+    "Cora, Citeseer cells: M3 Pro 12-core; PubMed, MNIST-kNN, PBMC,
+    ca-AstroPh cells: zjl 64-core (Linux). Both pinned `OMP=1`."
+    ca-AstroPh `136×` headline drops to `56×` — abstract rewrite
+    needed. Honest but visually messy.
+
+Recommend option (1). I will execute it on local M3 Pro on
+your ping-back; ETA ~30 min.
+
+#### Final agg numbers (post-fix, zjl) for paper-side cells
+
+| dataset | `\ours` LT (or T) | `\ours` runtime (zjl) |
+|---|---|---|
+| PubMed (N=5) | 0.905 ± 0.004 | 117 s |
+| MNIST-kNN (N=10) | 0.991 ± 0.007 | 238 s |
+| PBMC (N=10) | 0.989 ± 0.003 | 31 s |
+| ca-AstroPh (N=5, T) | 0.622 ± 0.002 | 72 s |
+
+#### Files touched
+
+- zjl: `output/tables/cells_baselines/{pubmed,ca_astroph,pbmc,mnist_knn}_pysgtsnepi_seed*.parquet` (all overwritten with post-fix), plus `mnist_knn_umap_seed{42..51}.parquet` (refreshed with per-seed PCA Y0 to enable N=10 paired Wilcoxon).
+- zjl: `output/tables/{pubmed,ca_astroph,pbmc,mnist_knn}_comparison{,_agg}.parquet` re-merged.
+- local: agg + cells parquets pulled via scp into the same paths (gitignored, won't appear in PR).
+- No code changes (R10 fix already covers).
+
+#### Action requested (paper-side, R11 close)
+
+> **Prompt for the receiving paper-side agent (R11 close on the paper side):**
+>
+> Three required edits + one runtime-host decision:
+>
+> 1. **PBMC framing rewrite (F1, priority A).** Abstract currently
+>    says "ties UMAP on \pbmc (N=10, p=1.000)". Replace with a
+>    significant-lead claim, e.g. "leads UMAP on \pbmc
+>    (N=10, Δ=+0.008, two-sided Wilcoxon p=0.049, sign-test 9/10)".
+>    Also update §eval body if it elaborates on the tie.
+> 2. **PBMC `tab:comparison` cell** — `0.986\s{0.001} & 22` →
+>    `0.989\s{0.003} & {pick host per F3}`.
+> 3. **MNIST-kNN cell + framing (F2).** Cell:
+>    `0.981\s{0.001} & 163` → `0.991\s{0.007} & {pick host}`.
+>    UMAP cell: `0.999\s{0.003} & 162` → `1.000\s{0.000} & 182` (zjl)
+>    or refresh on M3 Pro.
+>    "Saturated regime" framing in §eval can stay but should
+>    explicitly note "UMAP wins MNIST-kNN at p=0.002 (N=10)" rather
+>    than "no method dominates" if that phrase is used.
+> 4. **PubMed cell** — `0.903\s{0.004} & 46` →
+>    `0.905\s{0.004} & {pick host}`. No framing change.
+> 5. **ca-AstroPh cell** — `0.624\s{0.002} & 30` →
+>    `0.622\s{0.002} & {pick host}`. **If host=zjl, the `136×`
+>    headline recomputes to `56×`** (4083/72.4) — abstract rewrite
+>    required.
+> 6. **F3 host-policy decision** — pick option 1 (I re-run on M3 Pro,
+>    ~30 min, single-host preserved), option 2 (cora/citeseer move
+>    to zjl, R10/R10½ headlines redo), or option 3 (mixed-host with
+>    per-cell caption note + 136×→56× rewrite). Ping back which.
+>
+> Append "R11 close (paper side)" once items 1–5 land and option for
+> F3 is chosen.
