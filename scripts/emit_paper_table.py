@@ -26,6 +26,10 @@ DISPLAY_NAMES = {
     "phate": "PHATE",
     "node2vec_umap": "node2vec+UMAP",
     "drgraph": "DRGraph",
+    "spring": "Spring",
+    "kamada_kawai": "Kamada-Kawai",
+    "spectral": "Spectral",
+    "forceatlas2": "ForceAtlas2",
 }
 RANK_MARKERS = {1: r"\first", 2: r"\second", 3: r"\third"}
 

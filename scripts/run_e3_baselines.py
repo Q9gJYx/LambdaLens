@@ -36,6 +36,12 @@ GRAPH_ONLY = {"pbmc", "ca_astroph", "ogbn_arxiv"}
 NODE2VEC_SINGLE_SEED = {"pbmc", "ca_astroph", "pubmed"}
 NODE2VEC_SKIP = {"mnist_knn", "ogbn_arxiv"}
 PHATE_SUBSAMPLE_DATASETS = {"mnist_knn", "ca_astroph", "ogbn_arxiv"}
+# Kamada-Kawai requires a full O(n^2) distance matrix; skip for large graphs.
+KAMADA_KAWAI_SKIP = {"pubmed", "mnist_knn", "pbmc", "ca_astroph", "ogbn_arxiv",
+                     "coauthor_cs", "coauthor_physics"}
+# Spring and ForceAtlas2 are O(n^2) per iteration; skip for very large graphs.
+LAYOUT_LARGE_SKIP = {"mnist_knn", "ca_astroph", "ogbn_arxiv",
+                     "coauthor_cs", "coauthor_physics"}
 DEFAULT_PHATE_SUBSAMPLE_N = 10000
 CA_ASTROPH_PHATE_SUBSAMPLE_N = 3000
 DEFAULT_UNLABELED_LAMBDA = 10.0
@@ -215,6 +221,53 @@ def _run_node2vec_umap(adj: sp.csr_matrix, seed: int, Y0: np.ndarray) -> tuple[n
     return Y, time.perf_counter() - t0, info
 
 
+def _run_spring(adj: sp.csr_matrix, seed: int) -> tuple[np.ndarray, float, dict]:
+    import networkx as nx
+    iterations = 50  # networkx default; controls runtime vs. convergence
+    info: dict = {"input": "graph", "seed": seed, "iterations": iterations}
+    G = nx.from_scipy_sparse_array(adj)
+    t0 = time.perf_counter()
+    pos = nx.spring_layout(G, seed=seed, iterations=iterations)
+    n = adj.shape[0]
+    Y = np.array([pos[i] for i in range(n)], dtype=np.float64)
+    return Y, time.perf_counter() - t0, info
+
+
+def _run_kamada_kawai(adj: sp.csr_matrix) -> tuple[np.ndarray, float, dict]:
+    import networkx as nx
+    info: dict = {"input": "graph"}
+    G = nx.from_scipy_sparse_array(adj)
+    t0 = time.perf_counter()
+    pos = nx.kamada_kawai_layout(G)
+    n = adj.shape[0]
+    Y = np.array([pos[i] for i in range(n)], dtype=np.float64)
+    return Y, time.perf_counter() - t0, info
+
+
+def _run_spectral(adj: sp.csr_matrix) -> tuple[np.ndarray, float, dict]:
+    import networkx as nx
+    info: dict = {"input": "graph"}
+    G = nx.from_scipy_sparse_array(adj)
+    t0 = time.perf_counter()
+    pos = nx.spectral_layout(G)
+    n = adj.shape[0]
+    Y = np.array([pos[i] for i in range(n)], dtype=np.float64)
+    return Y, time.perf_counter() - t0, info
+
+
+def _run_forceatlas2(adj: sp.csr_matrix, seed: int) -> tuple[np.ndarray, float, dict]:
+    import networkx as nx
+    info: dict = {"input": "graph", "seed": seed}
+    G = nx.from_scipy_sparse_array(adj)
+    t0 = time.perf_counter()
+    if not hasattr(nx, "forceatlas2_layout"):
+        raise RuntimeError("forceatlas2_layout requires NetworkX >= 3.5")
+    pos = nx.forceatlas2_layout(G, seed=seed)
+    n = adj.shape[0]
+    Y = np.array([pos[i] for i in range(n)], dtype=np.float64)
+    return Y, time.perf_counter() - t0, info
+
+
 def _worker(dataset: str, method: str, seed: int, lam: float, out_root_str: str, phate_subsample_n: int) -> dict:
     warnings.filterwarnings("ignore")
     out_root = Path(out_root_str)
@@ -234,6 +287,14 @@ def _worker(dataset: str, method: str, seed: int, lam: float, out_root_str: str,
         Y, t, info = _run_phate(adj, features, seed, dataset, phate_subsample_n)
     elif method == "node2vec_umap":
         Y, t, info = _run_node2vec_umap(adj, seed, Y0)
+    elif method == "spring":
+        Y, t, info = _run_spring(adj, seed)
+    elif method == "kamada_kawai":
+        Y, t, info = _run_kamada_kawai(adj)
+    elif method == "spectral":
+        Y, t, info = _run_spectral(adj)
+    elif method == "forceatlas2":
+        Y, t, info = _run_forceatlas2(adj, seed)
     else:
         raise ValueError(f"unknown method {method}")
 
@@ -285,7 +346,8 @@ def main() -> int:
     p.add_argument("--datasets", nargs="+",
                    default=["pbmc", "cora", "citeseer", "ca_astroph", "mnist_knn"])
     p.add_argument("--methods", nargs="+",
-                   default=["pysgtsnepi", "umap", "opentsne", "node2vec_umap", "phate"])
+                   default=["pysgtsnepi", "umap", "opentsne", "node2vec_umap", "phate",
+                            "spring", "kamada_kawai", "spectral", "forceatlas2"])
     p.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44, 45, 46])
     p.add_argument("--max-workers", type=int, default=4)
     p.add_argument("--out-root", default="output")
@@ -306,6 +368,12 @@ def main() -> int:
         for method in args.methods:
             if method == "node2vec_umap" and ds in NODE2VEC_SKIP:
                 print(f"[e3] SKIP {ds}/node2vec_umap (compute-prohibitive)", flush=True)
+                continue
+            if method == "kamada_kawai" and ds in KAMADA_KAWAI_SKIP:
+                print(f"[e3] SKIP {ds}/kamada_kawai (O(n^2) distance matrix impractical)", flush=True)
+                continue
+            if method in ("spring", "forceatlas2") and ds in LAYOUT_LARGE_SKIP:
+                print(f"[e3] SKIP {ds}/{method} (O(n^2)/iter impractical for large graphs)", flush=True)
                 continue
             seeds_for_cell = (42,) if (method == "node2vec_umap" and ds in NODE2VEC_SINGLE_SEED) else tuple(args.seeds)
             for seed in seeds_for_cell:
